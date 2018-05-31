@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Chat</title>
+	<link rel="stylesheet" href="lib/styles/style.css">
+</head>
+<body>
+	<div id="content">
+		<!-- 当前房间名称 -->
+		<div id="room"></div>
+		<!-- 所有房间列表 -->
+		<div id="room-list"></div>
+		<!-- 聊天消息 -->
+		<div id="messages"></div>
+		<!-- 用户用来输入聊天命令和消息的表单输入元素 -->
+		<form id="send-form">
+			<input type="text" id="send-message">
+			<input type="submit" id="send-button" value="Send">
+			<div id="help">
+				Chat commands:
+				<ul>
+					<li>Change nickname: <code>/nick [username]</code></li>
+					<li>Join/create room: <code>/join [room name]</code></li>
+				</ul>
+			</div>
+		</form>
+	</div>
+	<script src="https://cdn.bootcss.com/socket.io/2.1.0/socket.io.js"></script>
+	<script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+	<script src="lib/scripts/chat_client.js"></script>
+	<script src="lib/scripts/chat_ui.js"></script>
+	<script>
+		var socket = io.connect();
+		$(function() {
+			var chatApp = new Chat(socket);
+			// 服务端发送'nameResult'事件：同时将昵称传至客户端
+			socket.on('nameResult', function(result) {
+				var message;
+				if (result.success) {
+					message = 'you are now known as ' + result.name + '.';
+				} else {
+					message = result.message;
+				}
+				$('#messages').append(divSystemContentElement(message));
+			});
+			// 服务端发送'joinResult'事件：客户端显示当前房间名称
+			socket.on('joinResult', function(result) {
+				$('#room').text(result.room);
+				$('#messages').append(divSystemContentElement('Room Changed.'));
+			});
+			// 服务端发送'message'事件：客户端显示接收到服务端的消息
+			socket.on('message', function(result) {
+				var newElement = $('<div></div>').text(result.text);
+				$('#messages').append(newElement);
+			});
+			// 服务端发送'rooms'事件：客户端显示可用房间列表
+			socket.on('rooms', function(rooms) {
+				$('#room-list').empty();
+				for (var room in rooms) {
+					// 新版接口，调试就知道了
+					if (room != '' && room !== Object.keys(rooms[room].sockets)[0]) {
+						$('#room-list').append(divEscapedContentElement(room));
+					}
+				}
+				// 点击房间名可以切换到对应的房间
+				$('#room-list div').on('click', function() {
+					chatApp.processCommand('/join ' + $(this).text());
+					$('#send-message').focus();
+				})
+			});
+			// 定期请求可用房间列表
+			setInterval(function() {
+				socket.emit('rooms');
+			}, 1000);
+			$('#send-message').focus();
+			// 提交表单可以发送聊天消息
+			$('#send-form').submit(function() {
+				processUserInput(chatApp, socket);
+				return false;
+			});
+		})
+	</script>
+</body>
+</html>

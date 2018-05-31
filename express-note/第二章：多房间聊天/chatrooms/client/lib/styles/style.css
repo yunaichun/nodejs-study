@@ -1,0 +1,49 @@
+body {
+	padding: 50px;
+	font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+a {
+	color: #00B7FF;
+}
+#content {
+	width: 800px;
+	margin-left: auto;
+	margin-right: auto;
+}
+/* 当前房间名称 */
+#room {
+	background-color: #ddd;
+	margin-bottom: 1em;
+}
+/* 用户用来输入聊天命令和消息的表单输入元素 */
+#messages {
+	width: 690px;
+	height: 300px;
+	overflow: auto;
+	background-color: #eee;
+	margin-bottom: 1em;
+	margin-right: 10px;
+}
+/* 所有房间列表 */ 
+#room-list {
+	float: right;
+	width: 100px;
+	height: 300px;
+	overflow: auto; 
+}
+#room-list div {
+	border-bottom: 1px solid #eee;
+}
+#room-list div:hover {
+	background-color: #ddd;
+}
+/* 发送消息输入框 */
+#send-message {
+	width: 700px;
+	margin-bottom: 1em;
+	margin-right: 1em;
+}
+/* 帮组提示 */
+#help {
+	font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
