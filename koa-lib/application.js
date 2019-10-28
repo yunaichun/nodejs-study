@@ -5,65 +5,42 @@
  * Module dependencies.
  */
 
-/*判断当前传入的 function 是否是标准的generator function
-  主要是正则判断：var isFnRegex = /^\s*(?:function)?\*/ 
-  /*
-*/
+/*正则判断当前传入的 function 是否是标准的 generator 函数【https://www.npmjs.com/package/is-generator-function】*/
 const isGeneratorFunction = require('is-generator-function');
-/*js 调试工具*/
+/*js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 const debug = require('debug')('koa:application');
-/*事件监听，当 http 请求关闭，完成或者出错的时候调用注册好的回调*/
+/*判断当前在运行 koa 的某些接口或者方法是否过期，如果过期，会给出一个升级的提示【https://www.npmjs.com/package/depd】*/
+const deprecate = require('depd')('koa');
+/*当 http 请求关闭，完成或者出错的时候调用注册好的回调【https://www.npmjs.com/package/on-finished】*/
 const onFinished = require('on-finished');
-/*响应请求*/
-const response = require('./response');
-/*中间件的函数数组*/
+/*请求状态码【https://www.npmjs.com/package/statuses】*/
+const statuses = require('statuses');
+/*白名单选择【https://www.npmjs.com/package/only】*/
+const only = require('only');
+
+/*兼容旧版本 koa 中间件：利用 co 库【https://github.com/koajs/convert】*/
+const convert = require('koa-convert');
+/*中间件的函数数组【https://github.com/koajs/compose】*/
 const compose = require('koa-compose');
-/*判断是否为 json 数据*/
+/*判断是否为 json 数据【https://www.npmjs.com/package/koa-is-json】*/
 const isJSON = require('koa-is-json');
+
+/*nodejs模块【http://nodejs.cn/api/events.html#events_events】*/
+const Emitter = require('events');
+// nodejs模块【http://nodejs.cn/api/util.html#util_util_inspect_custom】
+const util = require('util');
+/*nodejs模块【http://nodejs.cn/api/stream.html#stream_stream】*/
+const Stream = require('stream');
+/*nodejs模块【http://nodejs.cn/api/http.html#http_http】*/
+const http = require('http');
 /*运行服务上下文*/
 const context = require('./context');
 /*客户端的请求*/
 const request = require('./request');
-/*请求状态码*/
-const statuses = require('statuses');
-/*事件循环*/
-const Emitter = require('events');
-const util = require('util');
-/*流处理*/
-const Stream = require('stream');
-/*http 请求*/
-const http = require('http');
-/*白名单选择*/
-const only = require('only');
+/*响应请求*/
+const response = require('./response');
 
-/*兼容旧版本 koa 中间件(利用 co 库)
-  function convert (mw) {
-    // 参数必须是函数
-    if (typeof mw !== 'function') {
-      throw new TypeError('middleware must be a function')
-    }
-    // 参数不是 Generator 函数，直接返回
-    if (mw.constructor.name !== 'GeneratorFunction') {
-      // assume it's Promise-based middleware
-      return mw
-    }
-    // 参数是 Generator 函数
-    const converted = function (ctx, next) {
-      return co.call(ctx, mw.call(ctx, createGenerator(next)))
-    }
-    converted._name = mw._name || mw.name
-    return converted
-  }
 
-  function * createGenerator (next) {
-    return yield next()
-  }
-
-  // co 库的原理是传入 Generator 函数，可以自动执行，返回 Promise 函数
-*/
-const convert = require('koa-convert');
-/*判断当前在运行 koa 的某些接口或者方法是否过期，如果过期，会给出一个升级的提示*/
-const deprecate = require('depd')('koa');
 
 /**
  * Expose `Application` class.
@@ -105,7 +82,28 @@ module.exports = class Application extends Emitter {
     this.request = Object.create(request);
     /*response 模块，通过 response.js 创建*/
     this.response = Object.create(response);
+    // customInspect <boolean> 自定义的 inspect(depth, opts) 函数是否被调用。 默认为 true
     if (util.inspect.custom) {
+      // util.inspect用于对object做格式化字符串操作，并提供个性化配置项:
+      // const util = require('util');
+      // var child = {
+      //   "name": "child",
+      //   "age": 18,
+      //   "friends": [
+      //     {
+      //       "name": "randal",
+      //       "age" : 19,
+      //       "friends": [
+      //         {
+      //           "name": "Kate",
+      //           "age": 18
+      //         }
+      //       ]
+      //     }
+      //   ],
+      //   "motto": "Now this is not the end. It is not even the beginning of the end. But it is, perhaps, the end of the beginning."
+      // }
+      // console.log(util.inspect(child, { compact: false, depth: null, breakLength: 80}));
       this[util.inspect.custom] = this.inspect;
     }
   }
@@ -119,11 +117,22 @@ module.exports = class Application extends Emitter {
    * @return {Server}
    * @api public
    */
-  /*createServer 创建服务*/
   listen(...args) {
     debug('listen');
+    /*通过 createServer 创建服务*/
     const server = http.createServer(this.callback());
     return server.listen(...args);
+  }
+
+  /**
+   * Inspect implementation.
+   *
+   * @return {Object}
+   * @api public
+   */
+  inspect() {
+    // 调用 toJSON 方法
+    return this.toJSON();
   }
 
   /**
@@ -133,24 +142,13 @@ module.exports = class Application extends Emitter {
    * @return {Object}
    * @api public
    */
-
   toJSON() {
+    // koa 应用以 JSON 格式输出时只会输出这个应用的 subdomainOffset ,  proxy 和 env 这三条信息。
     return only(this, [
-      'subdomainOffset',
+      'subdomainOffset', // 存在 this 上的 key 值
       'proxy',
       'env'
     ]);
-  }
-
-  /**
-   * Inspect implementation.
-   *
-   * @return {Object}
-   * @api public
-   */
-
-  inspect() {
-    return this.toJSON();
   }
 
   /**
@@ -182,32 +180,7 @@ module.exports = class Application extends Emitter {
       deprecate('Support for generators will be removed in v3. ' +
                 'See the documentation for examples of how to convert old middleware ' +
                 'https://github.com/koajs/koa/blob/master/docs/migration.md');
-      /*兼容旧版本 koa 中间件(利用 co 库)
-        function convert (mw) {
-          // 参数必须是函数
-          if (typeof mw !== 'function') {
-            throw new TypeError('middleware must be a function')
-          }
-          // 参数不是 Generator 函数，直接返回
-          if (mw.constructor.name !== 'GeneratorFunction') {
-            // assume it's Promise-based middleware
-            return mw
-          }
-          // 参数是 Generator 函数
-          const converted = function (,ctx next) {
-            return co.call(ctx, mw.call(ctx, createGenerator(next)))
-          }
-          converted._name = mw._name || mw.name
-          return converted
-        }
-
-        function * createGenerator (next) {
-          return yield next()
-        }
-
-        // co 库的原理是传入 Generator 函数，可以自动执行，返回 Promise 函数
-      */
-      // 此 Generator 经过 co 库包装了一层
+      /*兼容旧版本 koa 中间件：利用 co 库*/
       fn = convert(fn);
     }
     debug('use %s', fn._name || fn.name || '-');
@@ -224,6 +197,7 @@ module.exports = class Application extends Emitter {
    */
 
   callback() {
+    /*传入中间件数组，返回一个函数*/
     const fn = compose(this.middleware);
 
     if (!this.listenerCount('error')) this.on('error', this.onerror);
