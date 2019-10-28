@@ -256,7 +256,10 @@ module.exports = class Application extends Emitter {
     const handleResponse = () => respond(ctx);
     /* 2、onFinished 监听 response 执行完成，以用来做一些资源清理工作。 */
     onFinished(res, onerror);
-    /* 3、执行传入的 fnMiddleware */
+    /* 3、执行传入的 fnMiddleware  ->  4、处理响应
+      const fn = compose(this.middleware);
+      this.handleRequest(ctx, fn); 
+    */
     return fnMiddleware(ctx).then(handleResponse).catch(onerror);
   }
 
@@ -267,11 +270,15 @@ module.exports = class Application extends Emitter {
    * @api private
    */
   onerror(err) {
+    /* 1、错误实例，抛出错误 */
     if (!(err instanceof Error)) throw new TypeError(util.format('non-error thrown: %j', err));
-
+   
+    /* 2、404 错误 */
     if (404 == err.status || err.expose) return;
+    /* 3、不需要监控 HTTP 请求错误，则可以将 silentHttp 属性设为 true */
     if (this.silent) return;
 
+    /* 4、打印错误 */
     const msg = err.stack || err.toString();
     console.error();
     console.error(msg.replace(/^/gm, '  '));
