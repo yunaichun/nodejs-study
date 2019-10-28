@@ -151,29 +151,6 @@ module.exports = class Application extends Emitter {
   }
 
   /**
-   * Return a request handler callback
-   * for node's native http server.
-   *
-   * @return {Function}
-   * @api public
-   */
-  callback() {
-    /*传入中间件数组，返回一个函数*/
-    const fn = compose(this.middleware);
-
-    if (!this.listenerCount('error')) this.on('error', this.onerror);
-
-    const handleRequest = (req, res) => {
-      const ctx = this.createContext(req, res);
-      /* 每次请求发过来的时候，内部会执行 this.handleRequest */
-      return this.handleRequest(ctx, fn);
-    };
-
-    /* 返回函数 (req, res) => {} */
-    return handleRequest;
-  }
-
-  /**
    * Use the given middleware `fn`.
    *
    * Old-style middleware will be converted.
@@ -213,21 +190,28 @@ module.exports = class Application extends Emitter {
   }
 
   /**
-   * Handle request in callback.
+   * Return a request handler callback
+   * for node's native http server.
    *
-   * @api private
+   * @return {Function}
+   * @api public
    */
+  callback() {
+    /*1、compose 传入中间件数组， 返回一个函数。此函数返回 dispatch(0) ， 是一个 Promise 对象。*/
+    const fn = compose(this.middleware);
 
-  handleRequest(ctx, fnMiddleware) {
-    const res = ctx.res;
-    res.statusCode = 404;
-    /* 错误处理：onerror 函数 */
-    const onerror = err => ctx.onerror(err);
-    const handleResponse = () => respond(ctx);
-    /* onFinished 监听 response 执行完成，以用来做一些资源清理工作。 */
-    onFinished(res, onerror);
-    /* 执行传入的 fnMiddleware */
-    return fnMiddleware(ctx).then(handleResponse).catch(onerror);
+    /* 2、监听错误 */
+    if (!this.listenerCount('error')) this.on('error', this.onerror);
+
+    const handleRequest = (req, res) => {
+      /* 3、创建上下文 */
+      const ctx = this.createContext(req, res);
+      /* 4、每次请求发过来的时候，内部会执行 this.handleRequest */
+      return this.handleRequest(ctx, fn);
+    };
+
+    /* 返回 handleRequest 给 http.createServer 作为参数。即返回： (req, res) => {} */
+    return handleRequest;
   }
 
   /**
@@ -235,20 +219,45 @@ module.exports = class Application extends Emitter {
    *
    * @api private
    */
-
   createContext(req, res) {
+    // 1、创建 context、request、response 对象
     const context = Object.create(this.context);
     const request = context.request = Object.create(this.request);
     const response = context.response = Object.create(this.response);
+
+    // 2、将 req、res 挂载到 context 上
     context.app = request.app = response.app = this;
     context.req = request.req = response.req = req;
     context.res = request.res = response.res = res;
+
+    /* 3、request、response 相互挂载 */
     request.ctx = response.ctx = context;
     request.response = response;
     response.request = request;
+
+    /* 4、context 挂载其余参数 */
     context.originalUrl = request.originalUrl = req.url;
     context.state = {};
+
+    // 返回 context
     return context;
+  }
+
+  /**
+   * Handle request in callback.
+   *
+   * @api private
+   */
+  handleRequest(ctx, fnMiddleware) {
+    const res = ctx.res;
+    res.statusCode = 404;
+    /* 1、错误处理：onerror 函数 */
+    const onerror = err => ctx.onerror(err);
+    const handleResponse = () => respond(ctx);
+    /* 2、onFinished 监听 response 执行完成，以用来做一些资源清理工作。 */
+    onFinished(res, onerror);
+    /* 3、执行传入的 fnMiddleware */
+    return fnMiddleware(ctx).then(handleResponse).catch(onerror);
   }
 
   /**
@@ -257,7 +266,6 @@ module.exports = class Application extends Emitter {
    * @param {Error} err
    * @api private
    */
-
   onerror(err) {
     if (!(err instanceof Error)) throw new TypeError(util.format('non-error thrown: %j', err));
 

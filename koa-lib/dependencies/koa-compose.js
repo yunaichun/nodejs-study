@@ -24,7 +24,7 @@ function compose (middleware) {
     if (typeof fn !== 'function') throw new TypeError('Middleware must be composed of functions!')
   }
 
-  /* compose 返回一个函数，此函数返回 dispatch(0) ， 是一个 Promise 对象 */
+  /* compose 传入中间件数组， 返回一个函数。此函数返回 dispatch(0) ， 是一个 Promise 对象。 */
   return function (context, next) {
     // last called middleware #
     /* index：存储的是最新一次被执行的中间件  */
