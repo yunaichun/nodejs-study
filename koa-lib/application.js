@@ -161,15 +161,16 @@ module.exports = class Application extends Emitter {
    */
   use(fn) {
     /*添加中间件, 中间件调用方法: 
-      // koa2
-      app.use(async function(ctx, next) { 
-        ctx.test = '123';
-        next();
-      });
-      // koa1
+      // 1、koa1
       app.use(function* (ctx, next) { 
         ctx.test = '123';
         yield next;
+      });
+
+      // 2、koa2
+      app.use(async function(ctx, next) { 
+        ctx.test = '123';
+        next();
       });
     */
     /*1、use 必须使用函数*/
@@ -289,7 +290,6 @@ module.exports = class Application extends Emitter {
 /**
  * Response helper.
  */
-
 function respond(ctx) {
   // allow bypassing koa
   if (false === ctx.respond) return;
@@ -307,7 +307,9 @@ function respond(ctx) {
     return res.end();
   }
 
+  /* HEAD 请求处理 */
   if ('HEAD' == ctx.method) {
+    /* 没有发送响应头 */
     if (!res.headersSent && isJSON(body)) {
       ctx.length = Buffer.byteLength(JSON.stringify(body));
     }
@@ -321,6 +323,7 @@ function respond(ctx) {
     } else {
       body = ctx.message || String(code);
     }
+    /* 没有发送响应头 */
     if (!res.headersSent) {
       ctx.type = 'text';
       ctx.length = Buffer.byteLength(body);
@@ -329,12 +332,13 @@ function respond(ctx) {
   }
 
   // responses
-  if (Buffer.isBuffer(body)) return res.end(body);
-  if ('string' == typeof body) return res.end(body);
-  if (body instanceof Stream) return body.pipe(res);
+  if (Buffer.isBuffer(body)) return res.end(body); /* Buffer 请求体 */
+  if ('string' == typeof body) return res.end(body); /* string 请求体 */
+  if (body instanceof Stream) return body.pipe(res); /* Stream 请求体 */
 
   // body: json
   body = JSON.stringify(body);
+  /* 没有发送响应头 */
   if (!res.headersSent) {
     ctx.length = Buffer.byteLength(body);
   }
