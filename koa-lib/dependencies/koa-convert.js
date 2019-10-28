@@ -6,17 +6,21 @@ const compose = require('koa-compose')
 
 module.exports = convert
 
+/**
+ * 将 Generator 函数转换利用 co 库包装
+ * @param {Generator Function} mw 
+ */
 function convert (mw) {
-  // 参数必须是函数
+  // 1、参数必须是函数
   if (typeof mw !== 'function') {
     throw new TypeError('middleware must be a function')
   }
-  // 参数不是 Generator 函数，直接返回
+  // 2、参数不是 Generator 函数，直接返回
   if (mw.constructor.name !== 'GeneratorFunction') {
     // assume it's Promise-based middleware
     return mw
   }
-  // 参数是 Generator 函数
+  // 3、参数是 Generator 函数
   const converted = function (ctx, next) {
     // co 库的原理是传入 Generator 函数，可以自动执行，返回 Promise 函数
     return co.call(ctx, mw.call(ctx, createGenerator(next)))
@@ -25,6 +29,10 @@ function convert (mw) {
   return converted
 }
 
+/**
+ * 创建 Generator 函数【实际为 ctx 调用 mw 函数，传入 createGenerator(next) 参数】
+ * @param {Function} next 
+ */
 function * createGenerator (next) {
   return yield next()
 }

@@ -63,7 +63,6 @@ module.exports = class Application extends Emitter {
     * @param {number} [options.subdomainOffset] Subdomain offset
     *
     */
-
   constructor(options) {
     super();
     options = options || {};
@@ -109,22 +108,6 @@ module.exports = class Application extends Emitter {
   }
 
   /**
-   * Shorthand for:
-   *
-   *    http.createServer(app.callback()).listen(...)
-   *
-   * @param {Mixed} ...
-   * @return {Server}
-   * @api public
-   */
-  listen(...args) {
-    debug('listen');
-    /*通过 createServer 创建服务*/
-    const server = http.createServer(this.callback());
-    return server.listen(...args);
-  }
-
-  /**
    * Inspect implementation.
    *
    * @return {Object}
@@ -152,40 +135,19 @@ module.exports = class Application extends Emitter {
   }
 
   /**
-   * Use the given middleware `fn`.
+   * Shorthand for:
    *
-   * Old-style middleware will be converted.
+   *    http.createServer(app.callback()).listen(...)
    *
-   * @param {Function} fn
-   * @return {Application} self
+   * @param {Mixed} ...
+   * @return {Server}
    * @api public
    */
-  /*添加中间件, 中间件调用方法: 
-    // koa2
-    app.use(async function(ctx, next) { 
-      ctx.test = '123';
-      next();
-    });
-    // koa1
-    app.use(function* (ctx, next) { 
-      ctx.test = '123';
-      yield next;
-    });
-  */
-  use(fn) {
-    /*use 必须使用函数*/
-    if (typeof fn !== 'function') throw new TypeError('middleware must be a function!');
-    /*如果 fn 是 Generator 函数，说明当前是 koa1 框架，将其转换为 koa2 函数*/
-    if (isGeneratorFunction(fn)) {
-      deprecate('Support for generators will be removed in v3. ' +
-                'See the documentation for examples of how to convert old middleware ' +
-                'https://github.com/koajs/koa/blob/master/docs/migration.md');
-      /*兼容旧版本 koa 中间件：利用 co 库*/
-      fn = convert(fn);
-    }
-    debug('use %s', fn._name || fn.name || '-');
-    this.middleware.push(fn);
-    return this;
+  listen(...args) {
+    debug('listen');
+    /*通过 createServer 创建服务*/
+    const server = http.createServer(this.callback());
+    return server.listen(...args);
   }
 
   /**
@@ -195,7 +157,6 @@ module.exports = class Application extends Emitter {
    * @return {Function}
    * @api public
    */
-
   callback() {
     /*传入中间件数组，返回一个函数*/
     const fn = compose(this.middleware);
@@ -204,10 +165,51 @@ module.exports = class Application extends Emitter {
 
     const handleRequest = (req, res) => {
       const ctx = this.createContext(req, res);
+      /* 每次请求发过来的时候，内部会执行 this.handleRequest */
       return this.handleRequest(ctx, fn);
     };
 
+    /* 返回函数 (req, res) => {} */
     return handleRequest;
+  }
+
+  /**
+   * Use the given middleware `fn`.
+   *
+   * Old-style middleware will be converted.
+   *
+   * @param {Function} fn
+   * @return {Application} self
+   * @api public
+   */
+  use(fn) {
+    /*添加中间件, 中间件调用方法: 
+      // koa2
+      app.use(async function(ctx, next) { 
+        ctx.test = '123';
+        next();
+      });
+      // koa1
+      app.use(function* (ctx, next) { 
+        ctx.test = '123';
+        yield next;
+      });
+    */
+    /*1、use 必须使用函数*/
+    if (typeof fn !== 'function') throw new TypeError('middleware must be a function!');
+    /*2、如果 fn 是 Generator 函数，说明当前是 koa1 框架，将其转换为 koa2 函数*/
+    if (isGeneratorFunction(fn)) {
+      // 新版本不用 generator 函数，改为 async 函数了
+      deprecate('Support for generators will be removed in v3. ' +
+                'See the documentation for examples of how to convert old middleware ' +
+                'https://github.com/koajs/koa/blob/master/docs/migration.md');
+      /*兼容旧版本 koa 中间件：利用 co 库*/
+      fn = convert(fn);
+    }
+    debug('use %s', fn._name || fn.name || '-');
+    // 3、收集中间件
+    this.middleware.push(fn);
+    return this;
   }
 
   /**
@@ -219,9 +221,12 @@ module.exports = class Application extends Emitter {
   handleRequest(ctx, fnMiddleware) {
     const res = ctx.res;
     res.statusCode = 404;
+    /* 错误处理：onerror 函数 */
     const onerror = err => ctx.onerror(err);
     const handleResponse = () => respond(ctx);
+    /* onFinished 监听 response 执行完成，以用来做一些资源清理工作。 */
     onFinished(res, onerror);
+    /* 执行传入的 fnMiddleware */
     return fnMiddleware(ctx).then(handleResponse).catch(onerror);
   }
 
