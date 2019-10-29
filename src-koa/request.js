@@ -4,18 +4,28 @@
 /**
  * Module dependencies.
  */
-
+/* node 模块 【http://nodejs.cn/api/url.html】 */
 const URL = require('url').URL;
-const net = require('net');
-const accepts = require('accepts');
-const contentType = require('content-type');
 const stringify = require('url').format;
-const parse = require('parseurl');
+/* node 模块 【http://nodejs.cn/api/net.html】 */
+const net = require('net');
+/* node 模块 【http://nodejs.cn/api/querystring.html】 */
 const qs = require('querystring');
-const typeis = require('type-is');
-const fresh = require('fresh');
-const only = require('only');
+/* node 模块 【http://nodejs.cn/api/util.html】 */
 const util = require('util');
+
+/* request 请求类型 【https://www.npmjs.com/package/accepts】 */
+const accepts = require('accepts');
+/* 解析 content-type 【https://www.npmjs.com/package/content-type】*/
+const contentType = require('content-type');
+/* 解析 req.url 【https://www.npmjs.com/package/parseurl】 */
+const parse = require('parseurl');
+/* 判断请求类型 【https://www.npmjs.com/package/type-is】 */
+const typeis = require('type-is');
+/* HTTP响应新鲜度测试（etag、last-modified、if-none-match） 【https://www.npmjs.com/package/fresh】 */
+const fresh = require('fresh');
+/*白名单选择【https://www.npmjs.com/package/only】*/
+const only = require('only');
 
 const IP = Symbol('context#ip');
 
@@ -31,8 +41,24 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   get header() {
+    /*分析，在 request.js 文件中 this.req 实际上是调用什么？
+      var request = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.request = Object.create(request);
+      };
+      var app = new App();
+      app.request.test(); 
+
+      综上可知，在 request.js 文件中获取 this.req ，表明肯定走到 createContext 方法中了
+      this.req -> request.req -> req
+    */
+    /* 获取 req 上的 header */
     return this.req.headers;
   },
 
@@ -41,8 +67,8 @@ module.exports = {
    *
    * @api public
    */
-
   set header(val) {
+    /* 设置 req 上的 header */
     this.req.headers = val;
   },
 
@@ -54,6 +80,7 @@ module.exports = {
    */
 
   get headers() {
+    /* 获取 req 上的 headers */
     return this.req.headers;
   },
 
@@ -64,6 +91,7 @@ module.exports = {
    */
 
   set headers(val) {
+    /* 设置 req 上的 headers */
     this.req.headers = val;
   },
 
@@ -73,8 +101,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get url() {
+    /* 获取 req 上的 url */
     return this.req.url;
   },
 
@@ -83,8 +111,8 @@ module.exports = {
    *
    * @api public
    */
-
   set url(val) {
+    /* 设置 req 上的 url  */
     this.req.url = val;
   },
 
@@ -94,8 +122,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get origin() {
+    /* 获取 req 上的 origin */
     return `${this.protocol}://${this.host}`;
   },
 
@@ -105,10 +133,12 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get href() {
+    /* 获取 req 上的 href  */
     // support: `GET http://example.com/foo`
+    /* originalUrl 含有协议 */
     if (/^https?:\/\//i.test(this.originalUrl)) return this.originalUrl;
+     /* originalUrl 不含有协议 */
     return this.origin + this.originalUrl;
   },
 
@@ -118,8 +148,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get method() {
+    /* 获取挂载在 req 上的方法 method */
     return this.req.method;
   },
 
@@ -129,8 +159,8 @@ module.exports = {
    * @param {String} val
    * @api public
    */
-
   set method(val) {
+    /* 设置挂载在 req 上的方法 method */
     this.req.method = val;
   },
 
@@ -140,8 +170,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get path() {
+    /* 获取请求路径 path ，实际是获取 req 的 pathname */
     return parse(this.req).pathname;
   },
 
@@ -151,8 +181,8 @@ module.exports = {
    * @param {String} path
    * @api public
    */
-
   set path(path) {
+    /* 设置请求路径 path ，实际是设置 req 上的 pathname 和 path */
     const url = parse(this.req);
     if (url.pathname === path) return;
 
@@ -168,8 +198,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   get query() {
+    /* 获取 req 上的 query */
     const str = this.querystring;
     const c = this._querycache = this._querycache || {};
     return c[str] || (c[str] = qs.parse(str));
@@ -181,8 +211,8 @@ module.exports = {
    * @param {Object} obj
    * @api public
    */
-
   set query(obj) {
+    /* 设置 req 上的 query */
     this.querystring = qs.stringify(obj);
   },
 
@@ -192,8 +222,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get querystring() {
+    /* 获取 req 上的 querystring ，实际上是从 req 上的 query 截取 */
     if (!this.req) return '';
     return parse(this.req).query || '';
   },
@@ -204,8 +234,8 @@ module.exports = {
    * @param {String} str
    * @api public
    */
-
   set querystring(str) {
+    /* 设置 req 上的 querystring ，实际上是从 req 上个的 search 和 path 截取 */
     const url = parse(this.req);
     if (url.search === `?${str}`) return;
 
@@ -222,8 +252,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get search() {
+    /* 获取 req 上的 search，实际是从 req 上的 querystring 截取*/
     if (!this.querystring) return '';
     return `?${this.querystring}`;
   },
@@ -235,8 +265,8 @@ module.exports = {
    * @param {String} str
    * @api public
    */
-
   set search(str) {
+    /* 设置 req 上的 search 实际是设置 querystring */
     this.querystring = str;
   },
 
@@ -248,9 +278,31 @@ module.exports = {
    * @return {String} hostname:port
    * @api public
    */
-
   get host() {
-    const proxy = this.app.proxy;
+    /*分析，在 request.js 文件中 this.app 实际上是调用什么？
+      var request = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.request = Object.create(request);
+      };
+      var app = new App();
+      app.request.test(); 
+
+      综上可知，在 request.js 文件中获取 this.req ，表明肯定走到 createContext 方法中了
+      this.app -> request.app -> 
+      request: {
+        app: this,
+        req: req,
+        res: res,
+        __proto__: Object.create(this.request)
+      }
+    */
+    /* 获取 req 上的 host */
+    const proxy = this.app.proxy; // 默认为 false
     let host = proxy && this.get('X-Forwarded-Host');
     if (!host) {
       if (this.req.httpVersionMajor >= 2) host = this.get(':authority');
@@ -268,8 +320,8 @@ module.exports = {
    * @return {String} hostname
    * @api public
    */
-
   get hostname() {
+    /* 获取 req 对象上的 hostname，实际从 host 截取 */
     const host = this.host;
     if (!host) return '';
     if ('[' == host[0]) return this.URL.hostname || ''; // IPv6
@@ -283,8 +335,8 @@ module.exports = {
    * @return {URL|Object}
    * @api public
    */
-
   get URL() {
+    /* 获取 req 上的 URL */
     /* istanbul ignore else */
     if (!this.memoizedURL) {
       const originalUrl = this.originalUrl || ''; // avoid undefined in template string
@@ -305,8 +357,8 @@ module.exports = {
    * @return {Boolean}
    * @api public
    */
-
   get fresh() {
+    /* 缓存相关 */
     const method = this.method;
     const s = this.ctx.status;
 
@@ -315,6 +367,39 @@ module.exports = {
 
     // 2xx or 304 as per rfc2616 14.26
     if ((s >= 200 && s < 300) || 304 == s) {
+      /*分析，在 request.js 文件中 this.response 实际上是调用什么？
+        var request = {
+          test: function() {
+            console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+          }
+        };
+        
+        var App = function() {
+          this.request = Object.create(request);
+        };
+        var app = new App();
+        app.request.test(); 
+
+        综上可知，在 request.js 文件中获取 this.req ，表明肯定走到 createContext 方法中了
+        this.response -> request.response -> response ->
+        {
+          app: this,
+          req: req,
+          res: res,
+          __proto__: Object.create(this.response)
+        }
+      */
+      /* fresh 对比请求头和响应头：
+        var reqHeaders = { 'if-none-match': '"foo"' };
+        var resHeaders = { 'etag': '"bar"' };
+        fresh(reqHeaders, resHeaders);
+        // => false
+        
+        var reqHeaders = { 'if-none-match': '"foo"' };
+        var resHeaders = { 'etag': '"foo"' };
+        fresh(reqHeaders, resHeaders);
+        // => true
+       */
       return fresh(this.header, this.response.header);
     }
 
@@ -329,8 +414,19 @@ module.exports = {
    * @return {Boolean}
    * @api public
    */
-
   get stale() {
+    /* 缓存分类
+      强缓存：
+      Expires：Thu，21 Jan 2017 23:39:02     GMT （绝对时间：服务端下发的时间，但是客户端可能不一致）  
+      Cache-Controll：max-age=3600 （相对时间：以客户端为准，单位为秒；两个都下发的话，以此为标准）
+
+      协商缓存：
+      Last-Mofified：上次修改时间，服务器下发的
+      If-Modified-Since：请求的时候客户端发送的，给服务端对比的（过了强缓存时间）
+      Etag：hash值，虽然修改时间变了，但是内容没有变。完全可以从副本拿。服务器下发的
+      If-None-Match：请求的时候客户端发送的，给服务端对比的（过了强缓存时间）
+    */
+    /* 是否过了协商缓存期 */
     return !this.fresh;
   },
 
@@ -340,9 +436,9 @@ module.exports = {
    * @return {Boolean}
    * @api public
    */
-
   get idempotent() {
     const methods = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS', 'TRACE'];
+    /* this.method 是以上其一 */
     return !!~methods.indexOf(this.method);
   },
 
@@ -352,8 +448,8 @@ module.exports = {
    * @return {Connection}
    * @api public
    */
-
   get socket() {
+    /* 获取请求 socket 协议 */
     return this.req.socket;
   },
 
@@ -363,8 +459,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get charset() {
+    /* 获取 req 上的 charset */
     try {
       const { parameters } = contentType.parse(this.req);
       return parameters.charset || '';
@@ -379,8 +475,8 @@ module.exports = {
    * @return {Number}
    * @api public
    */
-
   get length() {
+    /* 获取 req 上的 Content-Length */ 
     const len = this.get('Content-Length');
     if (len == '') return;
     return ~~len;
@@ -397,8 +493,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get protocol() {
+    /* 获取 req 上的 socket、X-Forwarded-Proto 等 */
     if (this.socket.encrypted) return 'https';
     if (!this.app.proxy) return 'http';
     const proto = this.get('X-Forwarded-Proto');
@@ -413,8 +509,8 @@ module.exports = {
    * @return {Boolean}
    * @api public
    */
-
   get secure() {
+    /* 协议是 https 才是安全的 */
     return 'https' == this.protocol;
   },
 
@@ -431,6 +527,7 @@ module.exports = {
    */
 
   get ips() {
+    /* 获取 req 上的 X-Forwarded-For */
     const proxy = this.app.proxy;
     const val = this.get('X-Forwarded-For');
     return proxy && val
@@ -448,6 +545,7 @@ module.exports = {
    */
 
   get ip() {
+    /* 获取 ip，其中 const IP = Symbol('context#ip'); */
     if (!this[IP]) {
       this[IP] = this.ips[0] || this.socket.remoteAddress || '';
     }
@@ -455,6 +553,7 @@ module.exports = {
   },
 
   set ip(_ip) {
+    /* 设置 ip */
     this[IP] = _ip;
   },
 
@@ -473,15 +572,21 @@ module.exports = {
    * @return {Array}
    * @api public
    */
-
   get subdomains() {
+    /* 默认获取 2 级子域 */
+    /* subdomainOffset 默认为 2 */
     const offset = this.app.subdomainOffset;
     const hostname = this.hostname;
     if (net.isIP(hostname)) return [];
     return hostname
-      .split('.')
-      .reverse()
-      .slice(offset);
+      .split('.') /* 以 . 分割 */
+      .reverse() /* 反转数组 */
+      .slice(offset); /* 从 offset 位置开始截取 */
+    /* 综上所述：
+      1、以点 . 分割 hostname
+      2、分割后从右向左数，从 0 开始数
+      3、offset 为几，就是前面的数组
+    */
   },
 
   /**
@@ -492,6 +597,12 @@ module.exports = {
    * @api private
    */
   get accept() {
+    /* 获取 req 接收的类型 content-type
+      var accept = accepts(req);
+      switch (accept.type(['json', 'html'])) {
+        case 'json':
+      } 
+    */
     return this._accept || (this._accept = accepts(this.req));
   },
 
@@ -502,6 +613,7 @@ module.exports = {
    * @api private
    */
   set accept(obj) {
+    /* 设置 req 可以接收的 content-type  */
     this._accept = obj;
   },
 
@@ -545,8 +657,13 @@ module.exports = {
    * @return {String|Array|false}
    * @api public
    */
-
   accepts(...args) {
+    /* 获取 req 接收的类型 content-type
+      var accept = accepts(req);
+      switch (accept.type(['json', 'html'])) {
+        case 'json':
+      } 
+    */
     return this.accept.types(...args);
   },
 
@@ -562,8 +679,13 @@ module.exports = {
    * @return {String|Array}
    * @api public
    */
-
   acceptsEncodings(...args) {
+    /* 获取 req 接收的压缩类型
+      var accept = accepts(req);
+      switch (accept.encodings(['gzip', 'deflate'])) {
+        case 'json':
+      } 
+    */
     return this.accept.encodings(...args);
   },
 
@@ -579,8 +701,13 @@ module.exports = {
    * @return {String|Array}
    * @api public
    */
-
   acceptsCharsets(...args) {
+    /* 获取 req 接收的编码类型
+      var accept = accepts(req);
+      switch (accept.charsets(['utf-8', 'utf-7'])) {
+        case 'json':
+      } 
+    */
     return this.accept.charsets(...args);
   },
 
@@ -596,8 +723,13 @@ module.exports = {
    * @return {Array|String}
    * @api public
    */
-
   acceptsLanguages(...args) {
+    /* 获取 req 接收的语言
+      var accept = accepts(req);
+      switch (accept.languages(['es', 'en'])) {
+        case 'json':
+      } 
+    */
     return this.accept.languages(...args);
   },
 
@@ -626,8 +758,8 @@ module.exports = {
    * @return {String|false|null}
    * @api public
    */
-
   is(types) {
+    /* 判断请求 req 是不是 types 类型 */
     if (!types) return typeis(this.req);
     if (!Array.isArray(types)) types = [].slice.call(arguments);
     return typeis(this.req, types);
@@ -640,8 +772,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get type() {
+    /* 获取 req 的 Content-Type */ 
     const type = this.get('Content-Type');
     if (!type) return '';
     return type.split(';')[0];
@@ -668,8 +800,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get(field) {
+    /* 获取 req 上指定字段 field */
     const req = this.req;
     switch (field = field.toLowerCase()) {
       case 'referer':
@@ -686,8 +818,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   inspect() {
+    /* 检查 */
     if (!this.req) return;
     return this.toJSON();
   },
@@ -698,8 +830,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   toJSON() {
+    /* 只展示当前 reuest 上三个字段 method、url、header */
     return only(this, [
       'method',
       'url',
@@ -714,7 +846,6 @@ module.exports = {
  * @return {Object}
  * @api public
  */
-
 /* istanbul ignore else */
 if (util.inspect.custom) {
   module.exports[util.inspect.custom] = module.exports.inspect;

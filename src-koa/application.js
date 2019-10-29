@@ -239,17 +239,20 @@ module.exports = class Application extends Emitter {
       context: {
         app: this,
         req: req,
-        res: res
+        res: res,
+        __proto__: Object.create(this.context) 
       }
       request: {
         app: this,
         req: req,
-        res: res
+        res: res,
+        __proto__: Object.create(this.request)
       }
       response: {
         app: this,
         req: req,
-        res: res
+        res: res,
+        __proto__: Object.create(this.response)
       }
     */
     context.app = request.app = response.app = this;
@@ -257,6 +260,7 @@ module.exports = class Application extends Emitter {
     context.res = request.res = response.res = res;
 
     /* 3、将 context、response挂载到 request 对象上，以此类推
+      request:{
         ctx: context,
         response: response
       }
