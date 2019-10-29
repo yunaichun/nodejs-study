@@ -225,25 +225,72 @@ module.exports = class Application extends Emitter {
    * @api private
    */
   createContext(req, res) {
-    // 1、创建 context、request、response 对象
+    /* 1、创建 request、response 对象，挂载到创建的 context 对象上
+      context: {
+        request: this.request // Object.create(request)
+        response: this.response // Object.create(response)
+      } 
+    */
     const context = Object.create(this.context);
     const request = context.request = Object.create(this.request);
     const response = context.response = Object.create(this.response);
 
-    // 2、将 req、res 挂载到 context 上
+    /* 2、将 req、res、this 挂载到 context、request、response对象上
+      context: {
+        app: this,
+        req: req,
+        res: res
+      }
+      request: {
+        app: this,
+        req: req,
+        res: res
+      }
+      response: {
+        app: this,
+        req: req,
+        res: res
+      }
+    */
     context.app = request.app = response.app = this;
     context.req = request.req = response.req = req;
     context.res = request.res = response.res = res;
 
-    /* 3、request、response 相互挂载 */
+    /* 3、将 context、response挂载到 request 对象上，以此类推
+        ctx: context,
+        response: response
+      }
+      response: {
+        ctx: context,
+        request: request
+      }
+    */
     request.ctx = response.ctx = context;
     request.response = response;
     response.request = request;
 
-    /* 4、context 挂载其余参数 */
+    /* 4、将 req.url 挂载到 request 对象上的 originalUrl 属性上 */
     context.originalUrl = request.originalUrl = req.url;
     context.state = {};
 
+    /*分析，在 request.js 文件中 this.req 实际上是调用什么？
+      var request = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.request = Object.create(request);
+      };
+      var app = new App();
+      app.request.test(); 
+
+      综上可知，在 request.js 文件中获取 this.req ，表明肯定走到 createContext 方法中了
+      this.req -> request.req -> req
+    */
+
+  
     // 返回 context
     return context;
   }
