@@ -4,12 +4,17 @@
 /**
  * Module dependencies.
  */
-
+/* nodejs模块【http://nodejs.cn/api/util.html#util_util_inspect_custom】 */
 const util = require('util');
+/* node 请求异常处理模块【https://www.npmjs.com/package/http-errors】 */
 const createError = require('http-errors');
+/* 请求断言库【https://www.npmjs.com/package/http-assert】 */
 const httpAssert = require('http-assert');
+/* delegates 基本用法就是将内部对象的变量或者函数绑定在暴露在外层的变量上【https://blog.csdn.net/weixin_34258782/article/details/87961359】 */
 const delegate = require('delegates');
+/* 请求状态码【https://www.npmjs.com/package/statuses】*/
 const statuses = require('statuses');
+/* cookie 处理【https://www.npmjs.com/package/cookies】 */
 const Cookies = require('cookies');
 
 const COOKIES = Symbol('context#cookies');
@@ -17,9 +22,7 @@ const COOKIES = Symbol('context#cookies');
 /**
  * Context prototype.
  */
-
 const proto = module.exports = {
-
   /**
    * util.inspect() implementation, which
    * just returns the JSON output.
@@ -27,7 +30,6 @@ const proto = module.exports = {
    * @return {Object}
    * @api public
    */
-
   inspect() {
     if (this === proto) return this;
     return this.toJSON();
@@ -44,7 +46,6 @@ const proto = module.exports = {
    * @return {Object}
    * @api public
    */
-
   toJSON() {
     return {
       request: this.request.toJSON(),
@@ -69,7 +70,6 @@ const proto = module.exports = {
    * @param {String} message
    * @api public
    */
-
   assert: httpAssert,
 
   /**
@@ -103,7 +103,6 @@ const proto = module.exports = {
    * @param {Error} err
    * @api private
    */
-
   onerror(err) {
     // don't do anything if there is no error.
     // this allows you to pass `this.onerror`
@@ -178,7 +177,6 @@ const proto = module.exports = {
  * @return {Object}
  * @api public
  */
-
 /* istanbul ignore else */
 if (util.inspect.custom) {
   module.exports[util.inspect.custom] = module.exports.inspect;
@@ -187,7 +185,7 @@ if (util.inspect.custom) {
 /**
  * Response delegation.
  */
-
+/* delegate 把 response 下面的方法和属性都挂载到 proto 上 */
 delegate(proto, 'response')
   .method('attachment')
   .method('redirect')
@@ -209,7 +207,7 @@ delegate(proto, 'response')
 /**
  * Request delegation.
  */
-
+/* delegate 把 request 下面的方法和属性都挂载到 proto 上 */
 delegate(proto, 'request')
   .method('acceptsLanguages')
   .method('acceptsEncodings')
