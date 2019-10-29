@@ -75,7 +75,11 @@ module.exports = class Application extends Emitter {
     if (options.keys) this.keys = options.keys;
     /*保存通过 app.use(middleware) 注册的中间件*/
     this.middleware = [];
-    /*context 模块，通过 context.js 创建*/
+    /*context 模块，通过 context.js 创建
+      1、this.context 为 context.js 创建的对象
+      2、delegate(proto, 'response').getter('headerSent') 等价于
+        this.context['origin'] = this.request['origin']
+    */
     this.context = Object.create(context);
     /*request 模块，通过 request.js 创建*/
     this.request = Object.create(request);
@@ -83,7 +87,7 @@ module.exports = class Application extends Emitter {
     this.response = Object.create(response);
     // customInspect <boolean> 自定义的 inspect(depth, opts) 函数是否被调用。 默认为 true
     if (util.inspect.custom) {
-      // util.inspect用于对object做格式化字符串操作，并提供个性化配置项:
+      // util.inspect 用于对 object 做格式化字符串操作，并提供个性化配置项:
       // const util = require('util');
       // var child = {
       //   "name": "child",
@@ -102,7 +106,7 @@ module.exports = class Application extends Emitter {
       //   ],
       //   "motto": "Now this is not the end. It is not even the beginning of the end. But it is, perhaps, the end of the beginning."
       // }
-      // console.log(util.inspect(child, { compact: false, depth: null, breakLength: 80}));
+      // console.log(util.inspect(child, { compact: false, depth: null, breakLength: 80 }));
       this[util.inspect.custom] = this.inspect;
     }
   }

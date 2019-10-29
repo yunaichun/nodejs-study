@@ -32,6 +32,7 @@ const proto = module.exports = {
    */
   inspect() {
     if (this === proto) return this;
+    /* 转换成 JSON */
     return this.toJSON();
   },
 
@@ -117,6 +118,7 @@ const proto = module.exports = {
     }
 
     // delegate
+    /* 触发错误 */
     this.app.emit('error', err, this);
 
     // nothing we can do here other
@@ -129,7 +131,8 @@ const proto = module.exports = {
     const { res } = this;
 
     // first unset all headers
-    /* istanbul ignore else */
+    /* istanbul ignore else */ 
+    /* 一出所有的响应 headers */
     if (typeof res.getHeaderNames === 'function') {
       res.getHeaderNames().forEach(name => res.removeHeader(name));
     } else {
@@ -151,12 +154,14 @@ const proto = module.exports = {
     // respond
     const code = statuses[err.status];
     const msg = err.expose ? err.message : code;
+    /* 需要设置状态和长度 */
     this.status = err.status;
     this.length = Buffer.byteLength(msg);
     res.end(msg);
   },
 
   get cookies() {
+    /* 获取 cookies */
     if (!this[COOKIES]) {
       this[COOKIES] = new Cookies(this.req, this.res, {
         keys: this.app.keys,
@@ -167,6 +172,7 @@ const proto = module.exports = {
   },
 
   set cookies(_cookies) {
+    /* 设置 cookies */
     this[COOKIES] = _cookies;
   }
 };
