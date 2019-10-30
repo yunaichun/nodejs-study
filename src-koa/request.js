@@ -68,7 +68,7 @@ module.exports = {
    * @api public
    */
   set header(val) {
-    /* 设置 req 上的 header */
+    /* 设置 req 上的 headers */
     this.req.headers = val;
   },
 
@@ -171,7 +171,7 @@ module.exports = {
    * @api public
    */
   get path() {
-    /* 获取请求路径 path ，实际是获取 req 的 pathname */
+    /* 获取 req 上的 pathname */
     return parse(this.req).pathname;
   },
 
@@ -182,7 +182,7 @@ module.exports = {
    * @api public
    */
   set path(path) {
-    /* 设置请求路径 path ，实际是设置 req 上的 pathname 和 path */
+    /* 设置 req 上的 pathname 和 path */
     const url = parse(this.req);
     if (url.pathname === path) return;
 
@@ -223,7 +223,7 @@ module.exports = {
    * @api public
    */
   get querystring() {
-    /* 获取 req 上的 querystring ，实际上是从 req 上的 query 截取 */
+    /* 获取 req 上的 query */
     if (!this.req) return '';
     return parse(this.req).query || '';
   },
@@ -235,7 +235,7 @@ module.exports = {
    * @api public
    */
   set querystring(str) {
-    /* 设置 req 上的 querystring ，实际上是从 req 上个的 search 和 path 截取 */
+    /* 设置 req 上的 search 和 path */
     const url = parse(this.req);
     if (url.search === `?${str}`) return;
 
@@ -253,7 +253,7 @@ module.exports = {
    * @api public
    */
   get search() {
-    /* 获取 req 上的 search，实际是从 req 上的 querystring 截取*/
+    /* 获取 req 上的 query*/
     if (!this.querystring) return '';
     return `?${this.querystring}`;
   },
@@ -266,7 +266,7 @@ module.exports = {
    * @api public
    */
   set search(str) {
-    /* 设置 req 上的 search 实际是设置 querystring */
+    /* 设置 req 上的 search 和 path */
     this.querystring = str;
   },
 
@@ -301,7 +301,7 @@ module.exports = {
         __proto__: Object.create(this.request)
       }
     */
-    /* 获取 req 上的 host */
+    /* 获取 req 上的 Host */
     const proxy = this.app.proxy; // 默认为 false
     let host = proxy && this.get('X-Forwarded-Host');
     if (!host) {
@@ -321,7 +321,7 @@ module.exports = {
    * @api public
    */
   get hostname() {
-    /* 获取 req 对象上的 hostname，实际从 host 截取 */
+    /* 获取 req 上的 Host */
     const host = this.host;
     if (!host) return '';
     if ('[' == host[0]) return this.URL.hostname || ''; // IPv6
@@ -358,7 +358,7 @@ module.exports = {
    * @api public
    */
   get fresh() {
-    /* 缓存相关 */
+    /* 缓存相关: 获取请求头是否更新 */
     const method = this.method;
     const s = this.ctx.status;
 
@@ -437,8 +437,8 @@ module.exports = {
    * @api public
    */
   get idempotent() {
+    /* this.method 是否是合法请求方式 */
     const methods = ['GET', 'HEAD', 'PUT', 'DELETE', 'OPTIONS', 'TRACE'];
-    /* this.method 是以上其一 */
     return !!~methods.indexOf(this.method);
   },
 
@@ -449,7 +449,7 @@ module.exports = {
    * @api public
    */
   get socket() {
-    /* 获取请求 socket 协议 */
+    /* 获取 req 上的 socket */
     return this.req.socket;
   },
 
@@ -460,7 +460,7 @@ module.exports = {
    * @api public
    */
   get charset() {
-    /* 获取 req 上的 charset */
+    /* 获取 req 上的 parameters.charset */
     try {
       const { parameters } = contentType.parse(this.req);
       return parameters.charset || '';
@@ -510,7 +510,7 @@ module.exports = {
    * @api public
    */
   get secure() {
-    /* 协议是 https 才是安全的 */
+    /* 获取是否是安全协议：协议是 https 才是安全的 */
     return 'https' == this.protocol;
   },
 
@@ -597,7 +597,7 @@ module.exports = {
    * @api private
    */
   get accept() {
-    /* 获取 req 接收的类型 content-type
+    /* 获取 req 允许的请求类型 content-type
       var accept = accepts(req);
       switch (accept.type(['json', 'html'])) {
         case 'json':
