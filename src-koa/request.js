@@ -54,9 +54,16 @@ module.exports = {
       };
       var app = new App();
       app.request.test(); 
-
+      
       综上可知，在 request.js 文件中获取 this.req ，表明肯定走到 createContext 方法中了
-      this.req -> request.req -> req
+      this.req -> request.req -> 
+      request: {
+        app: this,
+        req: req,
+        res: res,
+        __proto__: Object.create(this.request)
+      }
+      -> 即为 createServer 的 req 回调
     */
     /* 获取 req 上的 header */
     return this.req.headers;
@@ -300,6 +307,7 @@ module.exports = {
         res: res,
         __proto__: Object.create(this.request)
       }
+      -> 即为 application.js 
     */
     /* 获取 req 上的 Host */
     const proxy = this.app.proxy; // 默认为 false

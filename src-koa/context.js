@@ -104,6 +104,14 @@ const proto = module.exports = {
    * @param {Error} err
    * @api private
    */
+  /* 回忆一下我们如何在koa中统一处理错误，只需要让koa实例监听onerror事件就可以了。
+    则所有的中间件逻辑错误都会在这里被捕获并处理。如下所示：
+
+    app.on('error', err => {
+      log.error('server error', err)
+    }); 
+  */
+  /* 此 onerror 真正的封装是在 application.js 文件中 handleRequest 中的封装 */
   onerror(err) {
     // don't do anything if there is no error.
     // this allows you to pass `this.onerror`
@@ -118,7 +126,29 @@ const proto = module.exports = {
     }
 
     // delegate
-    /* 触发错误 */
+    /* 触发错误 
+      var context = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.request = Object.create(request);
+      };
+      var app = new App();
+      app.request.test();
+
+      综上可知，在 context.js 文件中获取 this.app ，表明肯定走到 createContext 方法中了
+      this.app -> context.app -> 
+      context: {
+        app: this,
+        req: req,
+        res: res,
+        __proto__: Object.create(this.context) 
+      }
+      -> 即为 application.js 中的 error
+    */
     this.app.emit('error', err, this);
 
     // nothing we can do here other

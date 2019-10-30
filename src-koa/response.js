@@ -64,7 +64,14 @@ module.exports = {
       app.response.test(); 
 
       综上可知，在 response.js 文件中获取 this.res ，表明肯定走到 createContext 方法中了
-      this.res -> response.res -> res
+      this.res -> response.res -> 
+      response: {
+        app: this,
+        req: req,
+        res: res,
+        __proto__: Object.create(this.response)
+      }
+      -> 即为 createServer 的 res 回调
     */
     /* 获取 res 上的 socket */
     return this.res.socket;

@@ -312,15 +312,39 @@ module.exports = class Application extends Emitter {
   handleRequest(ctx, fnMiddleware) {
     const res = ctx.res;
     res.statusCode = 404;
-    /* 1、错误处理：onerror 函数 */
+    /* 1、错误处理：onerror 函数实际是调用 context.js 文件的 onerror 事件
+      context: {
+        app: this,
+        req: req,
+        res: res,
+        __proto__: Object.create(this.context) 
+      }
+
+      所以，ctx.onerror 实际是调用 context.js 文件的 onerror 事件
+    */
     const onerror = err => ctx.onerror(err);
     const handleResponse = () => respond(ctx);
     /* 2、onFinished 监听 response 执行完成，以用来做一些资源清理工作。 */
     onFinished(res, onerror);
-    /* 3、执行传入的 fnMiddleware  ->  4、处理响应
-      const fn = compose(this.middleware);
-      this.handleRequest(ctx, fn); 
+    /* 3、执行传入的 fnMiddleware 
+          const fn = compose(this.middleware);
+          this.handleRequest(ctx, fn); 
+       4、处理响应
+          handleResponse
     */
+    /* koa 如何做到集中处理所有中间件的错误？【结合 koa-compose 】
+      1、中间件的 async 函数返回一个 Promise 对象；
+      2、async 函数内部抛出错误，会导致 Promise 对象变为 reject 状态。抛出的错误会被 catch 的回调函数 onerror 捕获到。
+      3、await 命令后面的 Promise 对象如果变为 reject 状态， reject 的参数也可以被 catch 的回调函数 onerror 捕获到。
+    */
+    /* 回忆一下我们如何在koa中统一处理错误，只需要让koa实例监听onerror事件就可以了。
+       则所有的中间件逻辑错误都会在这里被捕获并处理。如下所示：
+
+      app.on('error', err => {
+        log.error('server error', err)
+      }); 
+    */
+    /* 此 onerror 实际是 context.js 中的 onerror */ 
     return fnMiddleware(ctx).then(handleResponse).catch(onerror);
   }
 
