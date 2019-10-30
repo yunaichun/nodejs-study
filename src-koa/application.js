@@ -296,7 +296,11 @@ module.exports = class Application extends Emitter {
     */
 
   
-    // 返回 context
+    /* context.js 的 delegate 用法如下：
+      1、delegate(proto, 'response').access('body')
+      2、this.context.body = this.context.response.body
+      3、这样做的作用是通过 ctx.body，即可以获得 response.body
+     */
     return context;
   }
 
