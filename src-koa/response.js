@@ -4,22 +4,37 @@
 /**
  * Module dependencies.
  */
-
-const contentDisposition = require('content-disposition');
-const ensureErrorHandler = require('error-inject');
-const getType = require('cache-content-type');
-const onFinish = require('on-finished');
-const isJSON = require('koa-is-json');
-const escape = require('escape-html');
-const typeis = require('type-is').is;
-const statuses = require('statuses');
-const destroy = require('destroy');
-const assert = require('assert');
+/*nodejs模块【http://nodejs.cn/api/path.html】*/
 const extname = require('path').extname;
-const vary = require('vary');
-const only = require('only');
+// nodejs模块【http://nodejs.cn/api/util.html#util_util_inspect_custom】
 const util = require('util');
+const isJSON = require('koa-is-json');
+
+/*当 http 请求关闭，完成或者出错的时候调用注册好的回调【https://www.npmjs.com/package/on-finished】*/
+const onFinish = require('on-finished');
+/* 判断请求类型 【https://www.npmjs.com/package/type-is】 */
+const typeis = require('type-is').is;
+/*请求状态码【https://www.npmjs.com/package/statuses】*/
+const statuses = require('statuses');
+/*白名单选择【https://www.npmjs.com/package/only】*/
+const only = require('only');
+
+/* 解析响应 Content-Disposition【https://www.npmjs.com/package/content-disposition】 */
+const contentDisposition = require('content-disposition');
+/* 在流中注入错误 【https://www.npmjs.com/package/error-inject】 */
+const ensureErrorHandler = require('error-inject');
+/* 获取响应content-type【https://www.npmjs.com/package/cache-content-type】 */
+const getType = require('cache-content-type');
+/* http 特殊字符串编码 【https://www.npmjs.com/package/escape-html】 */
+const escape = require('escape-html');
+/* stream 流的销毁【https://www.npmjs.com/package/destroy】 */
+const destroy = require('destroy');
+/* 操作 http 响应头【https://www.npmjs.com/package/vary】 */
+const vary = require('vary');
+/* 编码 req.url 【https://www.npmjs.com/package/encodeurl】 */
 const encodeUrl = require('encodeurl');
+/* 断言库【https://www.npmjs.com/package/assert】 */
+const assert = require('assert');
 
 /**
  * Prototype.
@@ -35,6 +50,23 @@ module.exports = {
    */
 
   get socket() {
+    /*分析，在 response.js 文件中 this.res 实际上是调用什么？
+      var response = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.response = Object.create(response);
+      };
+      var app = new App();
+      app.response.test(); 
+
+      综上可知，在 response.js 文件中获取 this.res ，表明肯定走到 createContext 方法中了
+      this.res -> response.res -> res
+    */
+    /* 获取 res 上的 socket */
     return this.res.socket;
   },
 
@@ -46,6 +78,7 @@ module.exports = {
    */
 
   get header() {
+    /* 获取 res 上的 getHeaders、_headers */
     const { res } = this;
     return typeof res.getHeaders === 'function'
       ? res.getHeaders()
@@ -58,8 +91,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   get headers() {
+    /* 获取 res 上的 header */
     return this.header;
   },
 
@@ -69,8 +102,8 @@ module.exports = {
    * @return {Number}
    * @api public
    */
-
   get status() {
+    /* 获取 res 的 statusCode */
     return this.res.statusCode;
   },
 
@@ -80,8 +113,8 @@ module.exports = {
    * @param {Number} code
    * @api public
    */
-
   set status(code) {
+    /* 设置 res 的 statusCode */
     if (this.headerSent) return;
 
     assert(Number.isInteger(code), 'status code must be a number');
@@ -98,8 +131,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get message() {
+    /* 获取 res 的 statusMessage */
     return this.res.statusMessage || statuses[this.status];
   },
 
@@ -109,8 +142,8 @@ module.exports = {
    * @param {String} msg
    * @api public
    */
-
   set message(msg) {
+    /* 设置 res 的 statusMessage */
     this.res.statusMessage = msg;
   },
 
@@ -120,8 +153,8 @@ module.exports = {
    * @return {Mixed}
    * @api public
    */
-
   get body() {
+    /* 获取 res 的 _body */
     return this._body;
   },
 
@@ -133,6 +166,7 @@ module.exports = {
    */
 
   set body(val) {
+    /* 设置 res 的 _body */
     const original = this._body;
     this._body = val;
 
@@ -188,8 +222,8 @@ module.exports = {
    * @param {Number} n
    * @api public
    */
-
   set length(n) {
+    /* 设置 res 的 Content-Length */
     this.set('Content-Length', n);
   },
 
@@ -199,8 +233,8 @@ module.exports = {
    * @return {Number}
    * @api public
    */
-
   get length() {
+    /* 获取 res 的 content-length */
     const len = this.header['content-length'];
     const body = this.body;
 
@@ -211,7 +245,7 @@ module.exports = {
       if (isJSON(body)) return Buffer.byteLength(JSON.stringify(body));
       return;
     }
-
+    /* 将小数部分去掉 */
     return Math.trunc(len) || 0;
   },
 
@@ -221,8 +255,8 @@ module.exports = {
    * @return {Boolean}
    * @api public
    */
-
   get headerSent() {
+    /* 获取 res 的 headersSent */
     return this.res.headersSent;
   },
 
@@ -232,8 +266,12 @@ module.exports = {
    * @param {String} field
    * @api public
    */
-
   vary(field) {
+    /* res 响应头添加指定 field
+      // about to user-agent sniff
+      vary(res, 'User-Agent')
+      var ua = req.headers['user-agent'] || ''
+     */
     if (this.headerSent) return;
 
     vary(this.res, field);
@@ -257,8 +295,31 @@ module.exports = {
    * @param {String} [alt]
    * @api public
    */
-
   redirect(url, alt) {
+    /*分析，在 response.js 文件中 this.res 实际上是调用什么？
+      var ctx = {
+        test: function() {
+          console.log(this); // { __proto__: { test: function } } 即为 { __proto__: request }
+        }
+      };
+      
+      var App = function() {
+        this.ctx = Object.create(ctx);
+      };
+      var app = new App();
+      app.ctx.test(); 
+
+      综上可知，在 response.js 文件中获取 this.ctx ，表明肯定走到 createContext 方法中了
+      this.ctx -> response.ctx -> context
+      context: {
+        request: this.request, // Object.create(request)
+        response: this.response, // Object.create(response)
+        __proto__: Object.create(this.context) 
+      }
+
+      实际是调用 context.js 文件中的 get 方法 -> request.js 文件中的 get 方法
+    */
+    /* 获取 req 上的 header */
     // location
     if ('back' == url) url = this.ctx.get('Referrer') || alt || '/';
     this.set('Location', encodeUrl(url));
@@ -285,8 +346,8 @@ module.exports = {
    * @param {String} filename
    * @api public
    */
-
   attachment(filename, options) {
+    /* 设置 res 的 Content-Disposition */
     if (filename) this.type = extname(filename);
     this.set('Content-Disposition', contentDisposition(filename, options));
   },
@@ -306,8 +367,8 @@ module.exports = {
    * @param {String} type
    * @api public
    */
-
   set type(type) {
+    /* 设置或移除 res 的 Content-Type */
     type = getType(type);
     if (type) {
       this.set('Content-Type', type);
@@ -325,8 +386,8 @@ module.exports = {
    * @param {String|Date} type
    * @api public
    */
-
   set lastModified(val) {
+    /* 设置 res 的 Last-Modified */ 
     if ('string' == typeof val) val = new Date(val);
     this.set('Last-Modified', val.toUTCString());
   },
@@ -337,8 +398,8 @@ module.exports = {
    * @return {Date}
    * @api public
    */
-
   get lastModified() {
+    /* 获取 res 的 Last-Modified */ 
     const date = this.get('last-modified');
     if (date) return new Date(date);
   },
@@ -354,8 +415,8 @@ module.exports = {
    * @param {String} etag
    * @api public
    */
-
   set etag(val) {
+    /* 设置 res 的 ETag */ 
     if (!/^(W\/)?"/.test(val)) val = `"${val}"`;
     this.set('ETag', val);
   },
@@ -366,8 +427,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get etag() {
+    /* 获取 res 的 ETag */
     return this.get('ETag');
   },
 
@@ -378,8 +439,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get type() {
+    /* 获取 res 的 Content-Type */
     const type = this.get('Content-Type');
     if (!type) return '';
     return type.split(';', 1)[0];
@@ -393,8 +454,8 @@ module.exports = {
    * @return {String|false}
    * @api public
    */
-
   is(types) {
+    /* 判断 res 响应头是否是某种类型 */
     const type = this.type;
     if (!types) return type || false;
     if (!Array.isArray(types)) types = [].slice.call(arguments);
@@ -416,8 +477,8 @@ module.exports = {
    * @return {String}
    * @api public
    */
-
   get(field) {
+    /* 获取 res 的 header 中指定字段 */
     return this.header[field.toLowerCase()] || '';
   },
 
@@ -435,15 +496,17 @@ module.exports = {
    * @param {String} val
    * @api public
    */
-
   set(field, val) {
+    /* 设置 res 响应头 */
     if (this.headerSent) return;
 
     if (2 == arguments.length) {
+      /* 可以是数组和字符串 */
       if (Array.isArray(val)) val = val.map(v => typeof v === 'string' ? v : String(v));
       else if (typeof val !== 'string') val = String(val);
       this.res.setHeader(field, val);
     } else {
+      /* 可以是对象 */
       for (const key in field) {
         this.set(key, field[key]);
       }
@@ -465,8 +528,8 @@ module.exports = {
    * @param {String|Array} val
    * @api public
    */
-
   append(field, val) {
+    /* 在 res 的 field 后面追加 val */
     const prev = this.get(field);
 
     if (prev) {
@@ -484,8 +547,8 @@ module.exports = {
    * @param {String} name
    * @api public
    */
-
   remove(field) {
+    /* 移除 res 的 header */
     if (this.headerSent) return;
 
     this.res.removeHeader(field);
@@ -499,8 +562,8 @@ module.exports = {
    * @return {Boolean}
    * @api private
    */
-
   get writable() {
+    /* 获取 res 的 socket 的 writable 属性 */
     // can't write any more after response finished
     if (this.res.finished) return false;
 
@@ -517,8 +580,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   inspect() {
+    /* 将 res 的 body JSON 输出 */
     if (!this.res) return;
     const o = this.toJSON();
     o.body = this.body;
@@ -531,8 +594,8 @@ module.exports = {
    * @return {Object}
    * @api public
    */
-
   toJSON() {
+    /* 只输出 status、message、header */
     return only(this, [
       'status',
       'message',
@@ -544,6 +607,7 @@ module.exports = {
    * Flush any set headers, and begin the body
    */
   flushHeaders() {
+    /* res 的 flushHeaders */
     this.res.flushHeaders();
   }
 };

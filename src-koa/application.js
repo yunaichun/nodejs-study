@@ -227,8 +227,9 @@ module.exports = class Application extends Emitter {
   createContext(req, res) {
     /* 1、创建 request、response 对象，挂载到创建的 context 对象上
       context: {
-        request: this.request // Object.create(request)
-        response: this.response // Object.create(response)
+        request: this.request, // Object.create(request)
+        response: this.response, // Object.create(response)
+        __proto__: Object.create(this.context) 
       } 
     */
     const context = Object.create(this.context);
