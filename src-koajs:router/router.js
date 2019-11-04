@@ -4,20 +4,23 @@
  * @author Alex Mingoia <talk@alexmingoia.com>
  * @link https://github.com/alexmingoia/koa-router
  */
-
+/*js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 var debug = require('debug')('koa-router');
+/*中间件的函数数组【https://github.com/koajs/compose】*/
 var compose = require('koa-compose');
+/* node 请求异常处理模块【https://www.npmjs.com/package/http-errors】 */
 var HttpError = require('http-errors');
+/* http 请求所有的方法【https://www.npmjs.com/package/methods】 */
 var methods = require('methods');
 var Layer = require('./layer');
 
 /**
  * @module koa-router
  */
-
+/* 对外暴露 Router 构造函数 */
 module.exports = Router;
 
-/**
+/** 一、koa 中使用 koa-router
  * Create a new router.
  *
  * @example
@@ -45,8 +48,8 @@ module.exports = Router;
  * @param {String=} opts.prefix prefix router paths
  * @constructor
  */
-
 function Router(opts) {
+  /* 默认实例化 */
   if (!(this instanceof Router)) {
     return new Router(opts);
   }
@@ -66,7 +69,12 @@ function Router(opts) {
   this.stack = [];
 };
 
-/**
+
+
+
+
+
+/** 二、router 方法的使用
  * Create `router.verb()` methods, where *verb* is one of the HTTP verbs such
  * as `router.get()` or `router.post()`.
  *
@@ -75,6 +83,7 @@ function Router(opts) {
  *
  * Additionaly, `router.all()` can be used to match against all methods.
  *
+ * 2.1 所有 http 请求方法，支持链式调用
  * ```javascript
  * router
  *   .get('/', (ctx, next) => {
@@ -102,6 +111,7 @@ function Router(opts) {
  *
  * Query strings will not be considered when matching requests.
  *
+ * 2.2 含有名称的路由
  * #### Named routes
  *
  * Routes can optionally have names. This allows generation of URLs and easy
@@ -116,6 +126,7 @@ function Router(opts) {
  * // => "/users/3"
  * ```
  *
+ * 2.3、路由多级回调
  * #### Multiple middleware
  *
  * Multiple middleware may be given:
@@ -136,6 +147,7 @@ function Router(opts) {
  * );
  * ```
  *
+ * 2.4 嵌套路由
  * ### Nested routers
  *
  * Nesting routers is supported:
@@ -152,6 +164,7 @@ function Router(opts) {
  * app.use(forums.routes());
  * ```
  *
+ * 2.5 路由添加全局前缀
  * #### Router prefixes
  *
  * Route paths can be prefixed at the router level:
@@ -165,6 +178,7 @@ function Router(opts) {
  * router.get('/:id', ...); // responds to "/users/:id"
  * ```
  *
+ * 2.6 动态路由参数获取【ctx.params】
  * #### URL parameters
  *
  * Named route parameters are captured and added to `ctx.params`.
@@ -186,29 +200,88 @@ function Router(opts) {
  * @param {Function} callback route callback
  * @returns {Router}
  */
-
+/* 遍历 node 核心模块 http 模块上的请求方法：http.METHODS */
 methods.forEach(function (method) {
   Router.prototype[method] = function (name, path, middleware) {
     var middleware;
 
     if (typeof path === 'string' || path instanceof RegExp) {
+      /* 三个参数：将中间件取出来 */
       middleware = Array.prototype.slice.call(arguments, 2);
     } else {
+      /* 两个参数：没有 name */
       middleware = Array.prototype.slice.call(arguments, 1);
       path = name;
       name = null;
     }
 
+    /* 注册 */
     this.register(path, [method], middleware, {
       name: name
     });
 
+    /* 对于多个路径的请求，koa-router 也支持链式调用 */
     return this;
   };
 });
 
 // Alias for `router.delete()` because delete is a reserved word
 Router.prototype.del = Router.prototype['delete'];
+
+
+
+
+
+
+/**
+ * Create and register a route.
+ *
+ * @param {String} path Path string.
+ * @param {Array.<String>} methods Array of HTTP verbs.
+ * @param {Function} middleware Multiple middleware also accepted.
+ * @returns {Layer}
+ * @private
+ */
+/* 路由注册函数 */
+Router.prototype.register = function (path, methods, middleware, opts) {
+  opts = opts || {};
+
+  var router = this;
+  var stack = this.stack;
+
+  // support array of paths
+  if (Array.isArray(path)) {
+    /* 注册路由的 path 路径支持数组 */
+    path.forEach(function (p) {
+      router.register.call(router, p, methods, middleware, opts);
+    });
+
+    return this;
+  }
+
+  // create route
+  var route = new Layer(path, methods, middleware, {
+    end: opts.end === false ? opts.end : true,
+    name: opts.name,
+    sensitive: opts.sensitive || this.opts.sensitive || false,
+    strict: opts.strict || this.opts.strict || false,
+    prefix: opts.prefix || this.opts.prefix || "",
+    ignoreCaptures: opts.ignoreCaptures
+  });
+
+  if (this.opts.prefix) {
+    route.setPrefix(this.opts.prefix);
+  }
+
+  // add parameter middleware
+  Object.keys(this.params).forEach(function (param) {
+    route.param(param, this.params[param]);
+  }, this);
+
+  stack.push(route);
+
+  return route;
+};
 
 /**
  * Use given middleware.
@@ -239,7 +312,6 @@ Router.prototype.del = Router.prototype['delete'];
  * @param {Function=} ...
  * @returns {Router}
  */
-
 Router.prototype.use = function () {
   var router = this;
   var middleware = Array.prototype.slice.call(arguments);
@@ -292,7 +364,6 @@ Router.prototype.use = function () {
  * @param {String} prefix
  * @returns {Router}
  */
-
 Router.prototype.prefix = function (prefix) {
   prefix = prefix.replace(/\/$/, '');
 
@@ -310,7 +381,6 @@ Router.prototype.prefix = function (prefix) {
  *
  * @returns {Function}
  */
-
 Router.prototype.routes = Router.prototype.middleware = function () {
   var router = this;
 
@@ -398,7 +468,6 @@ Router.prototype.routes = Router.prototype.middleware = function () {
  * @param {Function=} options.methodNotAllowed throw the returned value in place of the default MethodNotAllowed error
  * @returns {Function}
  */
-
 Router.prototype.allowedMethods = function (options) {
   options = options || {};
   var implemented = this.methods;
@@ -464,7 +533,6 @@ Router.prototype.allowedMethods = function (options) {
  * @returns {Router}
  * @private
  */
-
 Router.prototype.all = function (name, path, middleware) {
   var middleware;
 
@@ -506,7 +574,6 @@ Router.prototype.all = function (name, path, middleware) {
  * @param {Number=} code HTTP status code (default: 301).
  * @returns {Router}
  */
-
 Router.prototype.redirect = function (source, destination, code) {
   // lookup source route by name
   if (source[0] !== '/') {
@@ -525,61 +592,11 @@ Router.prototype.redirect = function (source, destination, code) {
 };
 
 /**
- * Create and register a route.
- *
- * @param {String} path Path string.
- * @param {Array.<String>} methods Array of HTTP verbs.
- * @param {Function} middleware Multiple middleware also accepted.
- * @returns {Layer}
- * @private
- */
-
-Router.prototype.register = function (path, methods, middleware, opts) {
-  opts = opts || {};
-
-  var router = this;
-  var stack = this.stack;
-
-  // support array of paths
-  if (Array.isArray(path)) {
-    path.forEach(function (p) {
-      router.register.call(router, p, methods, middleware, opts);
-    });
-
-    return this;
-  }
-
-  // create route
-  var route = new Layer(path, methods, middleware, {
-    end: opts.end === false ? opts.end : true,
-    name: opts.name,
-    sensitive: opts.sensitive || this.opts.sensitive || false,
-    strict: opts.strict || this.opts.strict || false,
-    prefix: opts.prefix || this.opts.prefix || "",
-    ignoreCaptures: opts.ignoreCaptures
-  });
-
-  if (this.opts.prefix) {
-    route.setPrefix(this.opts.prefix);
-  }
-
-  // add parameter middleware
-  Object.keys(this.params).forEach(function (param) {
-    route.param(param, this.params[param]);
-  }, this);
-
-  stack.push(route);
-
-  return route;
-};
-
-/**
  * Lookup route with given `name`.
  *
  * @param {String} name
  * @returns {Layer|false}
  */
-
 Router.prototype.route = function (name) {
   var routes = this.stack;
 
@@ -626,7 +643,6 @@ Router.prototype.route = function (name) {
  * @param {Object|String} [options.query] query options
  * @returns {String|Error}
  */
-
 Router.prototype.url = function (name, params) {
   var route = this.route(name);
 
@@ -647,7 +663,6 @@ Router.prototype.url = function (name, params) {
  * path and method.
  * @private
  */
-
 Router.prototype.match = function (path, method) {
   var layers = this.stack;
   var layer;
@@ -704,7 +719,6 @@ Router.prototype.match = function (path, method) {
  * @param {Function} middleware
  * @returns {Router}
  */
-
 Router.prototype.param = function (param, middleware) {
   this.params[param] = middleware;
   this.stack.forEach(function (route) {
