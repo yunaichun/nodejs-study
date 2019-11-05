@@ -416,12 +416,139 @@ Router.prototype.routes = Router.prototype.middleware = function () {
     return compose(layerChain)(ctx, next);
   };
 
-  
+
   dispatch.router = this;
   /* 返回一个函数，供 koa 中间件使用 */
   return dispatch;
 };
 
+/**
+ * Returns separate middleware for responding to `OPTIONS` requests with
+ * an `Allow` header containing the allowed methods, as well as responding
+ * with `405 Method Not Allowed` and `501 Not Implemented` as appropriate.
+ *
+ * @example
+ *
+ * ```javascript
+ * const Koa = require('koa');
+ * const Router = require('@koa/router');
+ *
+ * const app = new Koa();
+ * const router = new Router();
+ *
+ * app.use(router.routes());
+ * app.use(router.allowedMethods());
+ * ```
+ *
+ * **Example with [Boom](https://github.com/hapijs/boom)**
+ *
+ * ```javascript
+ * const Koa = require('koa');
+ * const Router = require('@koa/router');
+ * const Boom = require('boom');
+ *
+ * const app = new Koa();
+ * const router = new Router();
+ *
+ * app.use(router.routes());
+ * app.use(router.allowedMethods({
+ *   throw: true,
+ *   notImplemented: () => new Boom.notImplemented(),
+ *   methodNotAllowed: () => new Boom.methodNotAllowed()
+ * }));
+ * ```
+ *
+ * @param {Object=} options
+ * @param {Boolean=} options.throw throw error instead of setting status and header
+ * @param {Function=} options.notImplemented throw the returned value in place of the default NotImplemented error
+ * @param {Function=} options.methodNotAllowed throw the returned value in place of the default MethodNotAllowed error
+ * @returns {Function}
+ */
+/* 对于 allowedMethod 方法来说, 它的作用就是用于处理请求的错误, 
+所以它作为路由模块的最后一个函数来执行. */
+Router.prototype.allowedMethods = function (options) {
+  options = options || {};
+  var implemented = this.methods;
+
+  /* 返回一个函数 */
+  return function allowedMethods(ctx, next) {
+    /* 从这里可以看出, allowedMethods 函数是用于在中间件机制中处理返回结果的函数
+    先执行 next 函数, next 函数返回的是一个 Promise 对象 */
+    return next().then(function() {
+      var allowed = {};
+
+      /* allowedMethods 函数的逻辑建立在 statusCode 没有设置或者值为 404 的时候 */
+      if (!ctx.status || ctx.status === 404) {
+        /* 这里的 matched 就是在 match 函数执行之后返回结果集中的 path 数组
+        也就是说请求路径与路由正则匹配的 layer 实例对象数组*/
+        ctx.matched.forEach(function (route) {
+          route.methods.forEach(function (method) {
+            /* 将这些 layer 路由的 HTTP 方法存储起来 */
+            allowed[method] = method;
+          });
+        });
+
+
+        /* 将上面的 allowed 整理为数组 */
+        var allowedArr = Object.keys(allowed);
+        /* 如果该方法不被允许 :
+        implemented 就是 Router 配置中的 methods 数组, 也就是允许的方法
+        这里通过 ~ 运算判断当前的请求方法是否在配置允许的方法中
+        */
+        if (!~implemented.indexOf(ctx.method)) {
+          /* 如果 Router 配置中配置 throw 为 true */
+          if (options.throw) {
+            var notImplementedThrowable;
+            /* 如果配置中规定了 throw 抛出错误的函数, 那么就执行对应的函数 */
+            if (typeof options.notImplemented === 'function') {
+              notImplementedThrowable = options.notImplemented(); // set whatever the user returns from their function
+            } else {
+              /* 如果没有则直接抛出 HTTP Error */
+              notImplementedThrowable = new HttpError.NotImplemented();
+            }
+            /* 抛出错误 */
+            throw notImplementedThrowable;
+          } else {
+            /* Router 配置 throw 为 false
+            设置状态码为 501 */
+            ctx.status = 501;
+            /* 并且设置 Allow 头部, 值为上面得到的允许的方法数组 allowedArr */
+            ctx.set('Allow', allowedArr.join(', '));
+          }
+        } else if (allowedArr.length) {
+          /*  如果该方法被允许 :
+          来到这里说明该请求的方法是被允许的, 那么为什么会没有状态码 statusCode 或者 statusCode 为 404 呢?
+          原因在于除却特殊情况, 我们一般在业务逻辑里面不会处理 OPTIONS 请求的
+          发出这个请求一般常见就是非简单请求, 则会发出预检请求 OPTIONS
+          例如 application/json 格式的 POST 请求 
+          */
+          if (ctx.method === 'OPTIONS') {
+            /* 如果是 OPTIONS 请求, 状态码为 200, 然后设置 Allow 头部, 值为允许的方法数组 methods */
+            ctx.status = 200;
+            ctx.body = '';
+            ctx.set('Allow', allowedArr.join(', '));
+          } else if (!allowed[ctx.method]) {
+            /* 方法不被被服务端允许 */
+            if (options.throw) {
+              var notAllowedThrowable;
+              if (typeof options.methodNotAllowed === 'function') {
+                notAllowedThrowable = options.methodNotAllowed(); // set whatever the user returns from their function
+              } else {
+                notAllowedThrowable = new HttpError.MethodNotAllowed();
+              }
+              /* 抛出异常 */
+              throw notAllowedThrowable;
+            } else {
+              /* 状态码改为 405 */
+              ctx.status = 405;
+              ctx.set('Allow', allowedArr.join(', '));
+            }
+          }
+        }
+      }
+    });
+  };
+};
 
 /**
  * Use given middleware.
@@ -522,103 +649,6 @@ Router.prototype.prefix = function (prefix) {
   });
 
   return this;
-};
-
-/**
- * Returns separate middleware for responding to `OPTIONS` requests with
- * an `Allow` header containing the allowed methods, as well as responding
- * with `405 Method Not Allowed` and `501 Not Implemented` as appropriate.
- *
- * @example
- *
- * ```javascript
- * const Koa = require('koa');
- * const Router = require('@koa/router');
- *
- * const app = new Koa();
- * const router = new Router();
- *
- * app.use(router.routes());
- * app.use(router.allowedMethods());
- * ```
- *
- * **Example with [Boom](https://github.com/hapijs/boom)**
- *
- * ```javascript
- * const Koa = require('koa');
- * const Router = require('@koa/router');
- * const Boom = require('boom');
- *
- * const app = new Koa();
- * const router = new Router();
- *
- * app.use(router.routes());
- * app.use(router.allowedMethods({
- *   throw: true,
- *   notImplemented: () => new Boom.notImplemented(),
- *   methodNotAllowed: () => new Boom.methodNotAllowed()
- * }));
- * ```
- *
- * @param {Object=} options
- * @param {Boolean=} options.throw throw error instead of setting status and header
- * @param {Function=} options.notImplemented throw the returned value in place of the default NotImplemented error
- * @param {Function=} options.methodNotAllowed throw the returned value in place of the default MethodNotAllowed error
- * @returns {Function}
- */
-Router.prototype.allowedMethods = function (options) {
-  options = options || {};
-  var implemented = this.methods;
-
-  return function allowedMethods(ctx, next) {
-    return next().then(function() {
-      var allowed = {};
-
-      if (!ctx.status || ctx.status === 404) {
-        ctx.matched.forEach(function (route) {
-          route.methods.forEach(function (method) {
-            allowed[method] = method;
-          });
-        });
-
-        var allowedArr = Object.keys(allowed);
-
-        if (!~implemented.indexOf(ctx.method)) {
-          if (options.throw) {
-            var notImplementedThrowable;
-            if (typeof options.notImplemented === 'function') {
-              notImplementedThrowable = options.notImplemented(); // set whatever the user returns from their function
-            } else {
-              notImplementedThrowable = new HttpError.NotImplemented();
-            }
-            throw notImplementedThrowable;
-          } else {
-            ctx.status = 501;
-            ctx.set('Allow', allowedArr.join(', '));
-          }
-        } else if (allowedArr.length) {
-          if (ctx.method === 'OPTIONS') {
-            ctx.status = 200;
-            ctx.body = '';
-            ctx.set('Allow', allowedArr.join(', '));
-          } else if (!allowed[ctx.method]) {
-            if (options.throw) {
-              var notAllowedThrowable;
-              if (typeof options.methodNotAllowed === 'function') {
-                notAllowedThrowable = options.methodNotAllowed(); // set whatever the user returns from their function
-              } else {
-                notAllowedThrowable = new HttpError.MethodNotAllowed();
-              }
-              throw notAllowedThrowable;
-            } else {
-              ctx.status = 405;
-              ctx.set('Allow', allowedArr.join(', '));
-            }
-          }
-        }
-      }
-    });
-  };
 };
 
 /**
