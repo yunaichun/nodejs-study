@@ -201,7 +201,7 @@ function Router(opts) {
  * @param {Function} callback route callback
  * @returns {Router}
  */
-/* 遍历 node 核心模块 http 模块上的请求方法：http.METHODS */
+/* Router 上添加 http.METHODS 所有方法*/
 methods.forEach(function (method) {
   Router.prototype[method] = function (name, path, middleware) {
     var middleware;
@@ -216,7 +216,10 @@ methods.forEach(function (method) {
       name = null;
     }
 
-    /* 注册 */
+    /* 注册 
+      1、router.get('/test', async (ctx, next) => {}); 等价于 2
+      2、router.register('/test', ['GET'], [async (ctx, next) => {}], { name: null });
+    */
     this.register(path, [method], middleware, {
       name: name
     });
@@ -229,11 +232,6 @@ methods.forEach(function (method) {
 // Alias for `router.delete()` because delete is a reserved word
 Router.prototype.del = Router.prototype['delete'];
 
-
-
-
-
-
 /**
  * Create and register a route.
  *
@@ -243,7 +241,7 @@ Router.prototype.del = Router.prototype['delete'];
  * @returns {Layer}
  * @private
  */
-/* 路由注册函数 */
+/* 注册路由 */
 Router.prototype.register = function (path, methods, middleware, opts) {
   opts = opts || {};
 
@@ -254,6 +252,7 @@ Router.prototype.register = function (path, methods, middleware, opts) {
   if (Array.isArray(path)) {
     /* 注册路由的 path 路径支持数组 */
     path.forEach(function (p) {
+      /* 循环注册每一项 */
       router.register.call(router, p, methods, middleware, opts);
     });
 
@@ -261,6 +260,7 @@ Router.prototype.register = function (path, methods, middleware, opts) {
   }
 
   // create route
+  /* register 的功能核心的代码全部都交由 Layer 类去完成 */
   var route = new Layer(path, methods, middleware, {
     end: opts.end === false ? opts.end : true,
     name: opts.name,
@@ -289,102 +289,75 @@ Router.prototype.register = function (path, methods, middleware, opts) {
 };
 
 /**
- * Use given middleware.
+ * Match given `path` and return corresponding routes.
  *
- * Middleware run in the order they are defined by `.use()`. They are invoked
- * sequentially, requests start at the first middleware and work their way
- * "down" the middleware stack.
- *
- * @example
- *
- * ```javascript
- * // session middleware will run before authorize
- * router
- *   .use(session())
- *   .use(authorize());
- *
- * // use middleware only with given path
- * router.use('/users', userAuth());
- *
- * // or with an array of paths
- * router.use(['/users', '/admin'], userAuth());
- *
- * app.use(router.routes());
- * ```
- *
- * @param {String=} path
- * @param {Function} middleware
- * @param {Function=} ...
- * @returns {Router}
+ * @param {String} path
+ * @param {String} method
+ * @returns {Object.<path, pathAndMethod>} returns layers that matched path and
+ * path and method.
+ * @private
  */
-Router.prototype.use = function () {
-  var router = this;
-  var middleware = Array.prototype.slice.call(arguments);
-  var path;
+/* 请求过来了, 请求是怎么匹配然后进行到相对应的处理函数 */
+Router.prototype.match = function (path, method) {
+  /* 取所有路由 Layer 实例 */
+  var layers = this.stack;
+  var layer;
+  /* 匹配结果 */
+  var matched = {
+    path: [],
+    pathAndMethod: [],
+    route: false
+  };
 
-  // support array of paths
-  if (Array.isArray(middleware[0]) && typeof middleware[0][0] === 'string') {
-    middleware[0].forEach(function (p) {
-      router.use.apply(router, [p].concat(middleware.slice(1)));
-    });
+  /* 遍历路由 Router 的 stack 逐个判断 */
+  for (var len = layers.length, i = 0; i < len; i++) {
+    layer = layers[i];
 
-    return this;
-  }
+    debug('test %s %s', layer.path, layer.regexp);
+    /* 这里是使用由路由字符串生成的正则表达式判断当前路径是否符合该正则 */
+    if (layer.match(path)) {
+      /* 将对应的 Layer 实例加入到结果集的 path 数组中 */
+      matched.path.push(layer);
 
-  var hasPath = typeof middleware[0] === 'string';
-  if (hasPath) {
-    path = middleware.shift();
-  }
-
-  middleware.forEach(function (m) {
-    if (m.router) {
-      m.router.stack.forEach(function (nestedLayer) {
-        if (path) nestedLayer.setPrefix(path);
-        if (router.opts.prefix) nestedLayer.setPrefix(router.opts.prefix);
-        router.stack.push(nestedLayer);
-      });
-
-      if (router.params) {
-        Object.keys(router.params).forEach(function (key) {
-          m.router.param(key, router.params[key]);
-        });
+      /* 如果对应的 layer 实例中 methods 数组为空或者数组中有找到对应的方法 */
+      if (layer.methods.length === 0 || ~layer.methods.indexOf(method)) {
+       /*  将 layer 放入到结果集的 pathAndMethod 中 */
+        matched.pathAndMethod.push(layer);
+        /* 这里是用于判断是否有真正匹配到路由处理函数
+        因为像 router.use(session()); 这样的中间件也是通过 Layer 来管理的, 它们的 methods 数组为空 */
+        if (layer.methods.length) matched.route = true;
       }
-    } else {
-      router.register(path || '(.*)', [], m, { end: false, ignoreCaptures: !hasPath });
     }
-  });
+  }
 
-  return this;
-};
-
-/**
- * Set the path prefix for a Router instance that was already initialized.
- *
- * @example
- *
- * ```javascript
- * router.prefix('/things/:thing_id')
- * ```
- *
- * @param {String} prefix
- * @returns {Router}
- */
-Router.prototype.prefix = function (prefix) {
-  prefix = prefix.replace(/\/$/, '');
-
-  this.opts.prefix = prefix;
-
-  this.stack.forEach(function (route) {
-    route.setPrefix(prefix);
-  });
-
-  return this;
+  /* 通过上面返回的结果集, 我们知道一个请求来临的时候, 我们可以使用正则来匹配路由是否符合, 
+  然后在 path 数组或者 pathAndMethod 数组中找到对应的 Layer 实例对象. */
+  return matched;
 };
 
 /**
  * Returns router middleware which dispatches a route matching the request.
  *
  * @returns {Function}
+ */
+/* 添加路由中间件：
+const Koa = require('koa');
+const KoaRouter = require('koa-router');
+
+const app = new Koa();
+// 创建 router 实例对象
+const router = new KoaRouter();
+
+//注册路由
+router.get('/', async (ctx, next) => {
+  console.log('index');
+  ctx.body = 'index';
+});
+
+app.use(router.routes());  // 添加路由中间件
+app.use(router.allowedMethods()); // 对请求进行一些限制处理
+
+app.listen(3000);
  */
 Router.prototype.routes = Router.prototype.middleware = function () {
   var router = this;
@@ -429,6 +402,108 @@ Router.prototype.routes = Router.prototype.middleware = function () {
   dispatch.router = this;
 
   return dispatch;
+};
+
+
+/**
+ * Use given middleware.
+ *
+ * Middleware run in the order they are defined by `.use()`. They are invoked
+ * sequentially, requests start at the first middleware and work their way
+ * "down" the middleware stack.
+ *
+ * @example
+ *
+ * ```javascript
+ * // session middleware will run before authorize
+ * router
+ *   .use(session())
+ *   .use(authorize());
+ *
+ * // use middleware only with given path
+ * router.use('/users', userAuth());
+ *
+ * // or with an array of paths
+ * router.use(['/users', '/admin'], userAuth());
+ *
+ * app.use(router.routes());
+ * ```
+ *
+ * @param {String=} path
+ * @param {Function} middleware
+ * @param {Function=} ...
+ * @returns {Router}
+ */
+Router.prototype.use = function () {
+  /* 获取 use 的中间件 */
+  var router = this;
+  var middleware = Array.prototype.slice.call(arguments);
+  var path;
+
+  // support array of paths
+  /* 路径为数组形式：router.use(['/users', '/admin'], userAuth()) */
+  if (Array.isArray(middleware[0]) && typeof middleware[0][0] === 'string') {
+    middleware[0].forEach(function (p) {
+      /* 
+      1、[p].concat(middleware.slice(1)) => ['/users', '/admin', userAuth()]
+      2、重新调用 use 方法 => router.use('/users', '/admin', userAuth());
+      */
+      router.use.apply(router, [p].concat(middleware.slice(1)));
+    });
+    return this;
+  }
+
+  /* 此时统一了传参：数组的路径全部变为字符串传进来了 */
+  var hasPath = typeof middleware[0] === 'string';
+  if (hasPath) {
+    /* 将路径拿出来 */
+    path = middleware.shift();
+  }
+
+  middleware.forEach(function (m) {
+    if (m.router) {
+      m.router.stack.forEach(function (nestedLayer) {
+        if (path) nestedLayer.setPrefix(path);
+        if (router.opts.prefix) nestedLayer.setPrefix(router.opts.prefix);
+        router.stack.push(nestedLayer);
+      });
+
+      if (router.params) {
+        Object.keys(router.params).forEach(function (key) {
+          m.router.param(key, router.params[key]);
+        });
+      }
+    } else {
+      router.register(path || '(.*)', [], m, { end: false, ignoreCaptures: !hasPath });
+    }
+  });
+
+  /* 返回 this 之后可以链式调用 */
+  return this;
+};
+
+/**
+ * Set the path prefix for a Router instance that was already initialized.
+ *
+ * @example
+ *
+ * ```javascript
+ * router.prefix('/things/:thing_id')
+ * ```
+ *
+ * @param {String} prefix
+ * @returns {Router}
+ */
+Router.prototype.prefix = function (prefix) {
+  prefix = prefix.replace(/\/$/, '');
+
+  this.opts.prefix = prefix;
+
+  this.stack.forEach(function (route) {
+    route.setPrefix(prefix);
+  });
+
+  return this;
 };
 
 /**
@@ -657,42 +732,6 @@ Router.prototype.url = function (name, params) {
   }
 
   return new Error("No route found for name: " + name);
-};
-
-/**
- * Match given `path` and return corresponding routes.
- *
- * @param {String} path
- * @param {String} method
- * @returns {Object.<path, pathAndMethod>} returns layers that matched path and
- * path and method.
- * @private
- */
-Router.prototype.match = function (path, method) {
-  var layers = this.stack;
-  var layer;
-  var matched = {
-    path: [],
-    pathAndMethod: [],
-    route: false
-  };
-
-  for (var len = layers.length, i = 0; i < len; i++) {
-    layer = layers[i];
-
-    debug('test %s %s', layer.path, layer.regexp);
-
-    if (layer.match(path)) {
-      matched.path.push(layer);
-
-      if (layer.methods.length === 0 || ~layer.methods.indexOf(method)) {
-        matched.pathAndMethod.push(layer);
-        if (layer.methods.length) matched.route = true;
-      }
-    }
-  }
-
-  return matched;
 };
 
 /**
