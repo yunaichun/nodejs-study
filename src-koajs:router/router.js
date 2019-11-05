@@ -66,6 +66,7 @@ function Router(opts) {
   ];
 
   this.params = {};
+  /* stack 存储的是 Layer 实例 */
   this.stack = [];
 };
 
@@ -270,16 +271,20 @@ Router.prototype.register = function (path, methods, middleware, opts) {
   });
 
   if (this.opts.prefix) {
+    /* 设置 path 的前缀 prefix */
     route.setPrefix(this.opts.prefix);
   }
 
   // add parameter middleware
+  /* 在指定位置插入中间件 */
   Object.keys(this.params).forEach(function (param) {
     route.param(param, this.params[param]);
   }, this);
 
+  /* stack 存储的是 Layer 实例 */
   stack.push(route);
 
+  /* 返回 route 实例 */
   return route;
 };
 
