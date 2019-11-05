@@ -648,12 +648,14 @@ Router.prototype.use = function () {
  * @param {String} prefix
  * @returns {Router}
  */
+/* Router 路由统一添加前缀 */
 Router.prototype.prefix = function (prefix) {
   prefix = prefix.replace(/\/$/, '');
 
   this.opts.prefix = prefix;
 
   this.stack.forEach(function (route) {
+    /* 调用 Layer 的 setPrefix 方法 */
     route.setPrefix(prefix);
   });
 
