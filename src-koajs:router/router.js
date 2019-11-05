@@ -358,6 +358,9 @@ app.use(router.routes());  // 添加路由中间件
 app.use(router.allowedMethods()); // 对请求进行一些限制处理
 
 app.listen(3000);
+
+在上面注册好了路由之后, 我们就可以使用 router.routes 来将路由模块添加到 koa 的中间件处理机制当中了. 
+由于 koa 的中间件插件是以一个函数的形式存在的, 所以 routes 函数返回值就是一个函数.
  */
 Router.prototype.routes = Router.prototype.middleware = function () {
   var router = this;
@@ -366,9 +369,11 @@ Router.prototype.routes = Router.prototype.middleware = function () {
     debug('%s %s', ctx.method, ctx.path);
 
     var path = router.opts.routerPath || ctx.routerPath || ctx.path;
+    /* 根据 path 值取的匹配的路由 Layer 实例对象 */
     var matched = router.match(path, ctx.method);
     var layerChain, layer, i;
 
+    /* 匹配上了 path 路径 */
     if (ctx.matched) {
       ctx.matched.push.apply(ctx.matched, matched.path);
     } else {
@@ -376,9 +381,11 @@ Router.prototype.routes = Router.prototype.middleware = function () {
     }
 
     ctx.router = router;
-
+    /* 果没有匹配到对应的路由模块, 那么就直接跳过下面的逻辑 */
     if (!matched.route) return next();
 
+
+    /* 取路径与方法都匹配了的 Layer 实例对象 */
     var matchedLayers = matched.pathAndMethod
     var mostSpecificLayer = matchedLayers[matchedLayers.length - 1]
     ctx._matchedRoute = mostSpecificLayer.path;
@@ -386,9 +393,16 @@ Router.prototype.routes = Router.prototype.middleware = function () {
       ctx._matchedRouteName = mostSpecificLayer.name;
     }
 
+
+    /* 构建路径对应路由的处理中间件函数数组
+      这里的目的是在每个匹配的路由对应的中间件处理函数数组前添加一个用于处理
+      对应路由的 captures, params, 以及路由命名的函数 
+    */
     layerChain = matchedLayers.reduce(function(memo, layer) {
       memo.push(function(ctx, next) {
+        /* captures 是存储路由中参数的值的数组 */
         ctx.captures = layer.captures(path, ctx.captures);
+        /* params 是一个对象, 键为参数名, 根据参数名可以获取路由中的参数值, 值从 captures 中拿 */
         ctx.params = layer.params(path, ctx.captures, ctx.params);
         ctx.routerName = layer.name;
         return next();
@@ -396,11 +410,15 @@ Router.prototype.routes = Router.prototype.middleware = function () {
       return memo.concat(layer.stack);
     }, []);
 
+
+    /* 使用 compose 模块将对应路由的处理中间件数组中的函数逐个执行
+    当路由的处理函数中间件函数全部执行完, 再调用上一层级的 next 函数进入下一个中间件 */
     return compose(layerChain)(ctx, next);
   };
 
+  
   dispatch.router = this;
-
+  /* 返回一个函数，供 koa 中间件使用 */
   return dispatch;
 };
 
