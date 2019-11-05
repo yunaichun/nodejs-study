@@ -606,19 +606,28 @@ Router.prototype.use = function () {
   }
 
   middleware.forEach(function (m) {
+    /* 如果有 router 属性, 说明这个中间件函数是由 Router.prototype.routes 暴露出来的
+    属于嵌套路由 */
     if (m.router) {
+      /* 这里的逻辑很有意思, 如果是嵌套路由, 相当于将需要嵌套路由重新注册到现在的 Router 对象上 */
       m.router.stack.forEach(function (nestedLayer) {
+        /* 如果有 path, 那么为需要嵌套的路由加上路径前缀 */
         if (path) nestedLayer.setPrefix(path);
+        /* 如果本身的 router 有前缀配置, 也添加上 */
         if (router.opts.prefix) nestedLayer.setPrefix(router.opts.prefix);
+        /* 将需要嵌套的路由模块的 stack 中存储的 Layer 加入到本 router 对象上 */
         router.stack.push(nestedLayer);
       });
 
+      /* 这里与 register 函数的逻辑类似, 注册的时候检查添加参数校验函数 params */
       if (router.params) {
         Object.keys(router.params).forEach(function (key) {
           m.router.param(key, router.params[key]);
         });
       }
     } else {
+      /* 没有 router 属性则是常规中间件函数, 如果有给定的 path 那么就生成一个 Layer 模块进行管理
+      如果没有 path, 那么就生成通配的路径 (.*) 来生成 Layer 来管理 */
       router.register(path || '(.*)', [], m, { end: false, ignoreCaptures: !hasPath });
     }
   });
