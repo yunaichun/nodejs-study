@@ -672,17 +672,34 @@ Router.prototype.prefix = function (prefix) {
  * @returns {Router}
  * @private
  */
+/* router.verb()中传入的method是单个方法，router.all()则是以数组的形式传入HTTP所有的请求方法 
+  const Koa = require('koa');
+  const Router = require('koa-router');
+  const app = new Koa();
+  const router = new Router();
+
+  // all 方法
+  router.all('/', (ctx, next) => {
+    console.log('match "all" method');
+    next();
+  });
+  // 加载路由中间件
+  app.use(router.routes());
+*/
 Router.prototype.all = function (name, path, middleware) {
   var middleware;
 
   if (typeof path === 'string') {
+    /* 传入了 name 参数 */
     middleware = Array.prototype.slice.call(arguments, 2);
   } else {
+    /* 没有传 name 参数 */
     middleware = Array.prototype.slice.call(arguments, 1);
     path = name;
     name = null;
   }
 
+  /* 注册路由 */
   this.register(path, methods, middleware, {
     name: name
   });
@@ -713,6 +730,7 @@ Router.prototype.all = function (name, path, middleware) {
  * @param {Number=} code HTTP status code (default: 301).
  * @returns {Router}
  */
+/* 路由重定向*/
 Router.prototype.redirect = function (source, destination, code) {
   // lookup source route by name
   if (source[0] !== '/') {
@@ -724,28 +742,11 @@ Router.prototype.redirect = function (source, destination, code) {
     destination = this.url(destination);
   }
 
+  /* all -> 调用 koa 的 redirect */
   return this.all(source, ctx => {
     ctx.redirect(destination);
     ctx.status = code || 301;
   });
-};
-
-/**
- * Lookup route with given `name`.
- *
- * @param {String} name
- * @returns {Layer|false}
- */
-Router.prototype.route = function (name) {
-  var routes = this.stack;
-
-  for (var len = routes.length, i=0; i<len; i++) {
-    if (routes[i].name && routes[i].name === name) {
-      return routes[i];
-    }
-  }
-
-  return false;
 };
 
 /**
@@ -783,14 +784,58 @@ Router.prototype.route = function (name) {
  * @returns {String|Error}
  */
 Router.prototype.url = function (name, params) {
+  /* 根据路由 name 名称匹配出当前的路由中间件 */
   var route = this.route(name);
 
   if (route) {
+    /* 路由的参数 */
     var args = Array.prototype.slice.call(arguments, 1);
+    /* 调用 Layer 的 url 方法 */
     return route.url.apply(route, args);
   }
 
   return new Error("No route found for name: " + name);
+};
+
+/**
+ * Lookup route with given `name`.
+ *
+ * @param {String} name
+ * @returns {Layer|false}
+ */
+/* 根据路由 name 名称匹配出当前的路由中间件 */
+Router.prototype.route = function (name) {
+  /* stack 存储的是当前方法的中间件 函数 */
+  var routes = this.stack;
+
+  /* 根据路由 name 名称匹配出当前的路由中间件 */
+  for (var len = routes.length, i=0; i<len; i++) {
+    if (routes[i].name && routes[i].name === name) {
+      return routes[i];
+    }
+  }
+
+  return false;
+};
+
+/**
+ * Generate URL from url pattern and given `params`.
+ *
+ * @example
+ *
+ * ```javascript
+ * const url = Router.url('/users/:id', {id: 1});
+ * // => "/users/1"
+ * ```
+ *
+ * @param {String} path url pattern
+ * @param {Object} params url parameters
+ * @returns {String}
+ */
+/* 调用 Layer 的 url 方法 */
+Router.url = function (path, params) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return Layer.prototype.url.apply({ path: path }, args);
 };
 
 /**
@@ -822,29 +867,13 @@ Router.prototype.url = function (name, params) {
  * @param {Function} middleware
  * @returns {Router}
  */
+/* 调用 Layer 的 param 方法 */
 Router.prototype.param = function (param, middleware) {
   this.params[param] = middleware;
+  /* 遍历 Layer */
   this.stack.forEach(function (route) {
+    /* 调用 Layer 的 param 方法 */
     route.param(param, middleware);
   });
   return this;
-};
-
-/**
- * Generate URL from url pattern and given `params`.
- *
- * @example
- *
- * ```javascript
- * const url = Router.url('/users/:id', {id: 1});
- * // => "/users/1"
- * ```
- *
- * @param {String} path url pattern
- * @param {Object} params url parameters
- * @returns {String}
- */
-Router.url = function (path, params) {
-    var args = Array.prototype.slice.call(arguments, 1);
-    return Layer.prototype.url.apply({ path: path }, args);
 };
