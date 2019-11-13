@@ -332,7 +332,7 @@ app.use = function use(fn) {
   }
 
   // setup router
-  /* 拿到路由的配置信息 */
+  /* app.use 内部调用方法：实例路由 */
   this.lazyrouter();
   var router = this._router;
 
@@ -377,7 +377,7 @@ app.use = function use(fn) {
  *
  * @private
  */
-/* app.use 内部调用方法 */
+/* app.use 内部调用方法：实例路由【用到的时候才去实例化】 */
 app.lazyrouter = function lazyrouter() {
   if (!this._router) {
     /* 实例化路由 Router */
@@ -391,6 +391,48 @@ app.lazyrouter = function lazyrouter() {
     this._router.use(middleware.init(this));
   }
 };
+
+/**
+ * Special-cased "all" method, applying the given route `path`,
+ * middleware, and callback to _every_ HTTP method.
+ *
+ * @param {String} path
+ * @param {Function} ...
+ * @return {app} for chaining
+ * @public
+ */
+/* 
+router.all('*', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'http://localhost:4000'); //设置Credentials，就不能设置*。【携带session】
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Content-Length, Authorization, Accept,X-Requested-With');
+  res.header('Access-Control-Allow-Methods', 'PUT,POST,GET,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('X-Powered-By', ' 3.2.1');
+  if (req.method === 'OPTIONS') {
+  res.send(200);
+  }
+  next();
+}); 
+*/
+app.all = function all(path) {
+  /* app.use 内部调用方法：实例路由 */
+  this.lazyrouter();
+
+  /* 拿到路由对象 */
+  var route = this._router.route(path);
+  var args = slice.call(arguments, 1);
+
+  /* route 对应的 path 的所有 method 都会调用  */
+  for (var i = 0; i < methods.length; i++) {
+    route[methods[i]].apply(route, args);
+  }
+
+  return this;
+};
+
+// del -> delete alias
+
+app.del = deprecate.function(app.delete, 'app.del: Use app.delete instead');
 
 /**
  * Dispatch a req, res pair into the application. Starts pipeline processing.
@@ -551,33 +593,6 @@ methods.forEach(function(method){
     return this;
   };
 });
-
-/**
- * Special-cased "all" method, applying the given route `path`,
- * middleware, and callback to _every_ HTTP method.
- *
- * @param {String} path
- * @param {Function} ...
- * @return {app} for chaining
- * @public
- */
-
-app.all = function all(path) {
-  this.lazyrouter();
-
-  var route = this._router.route(path);
-  var args = slice.call(arguments, 1);
-
-  for (var i = 0; i < methods.length; i++) {
-    route[methods[i]].apply(route, args);
-  }
-
-  return this;
-};
-
-// del -> delete alias
-
-app.del = deprecate.function(app.delete, 'app.del: Use app.delete instead');
 
 /**
  * Render the given view `name` name with `options`
