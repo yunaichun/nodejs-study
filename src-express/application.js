@@ -34,14 +34,13 @@ var slice = Array.prototype.slice;
 /**
  * Application prototype.
  */
-
+/* 这里是导出的对象 */
 var app = exports = module.exports = {};
 
 /**
  * Variable for trust proxy inheritance back-compat
  * @private
  */
-
 var trustProxyDefaultSymbol = '@@symbol:trust_proxy_default';
 
 /**
@@ -53,7 +52,7 @@ var trustProxyDefaultSymbol = '@@symbol:trust_proxy_default';
  *
  * @private
  */
-
+/* 初始化 */
 app.init = function init() {
   this.cache = {};
   this.engines = {};
@@ -66,7 +65,7 @@ app.init = function init() {
  * Initialize application configuration.
  * @private
  */
-
+/* 设置初始配置 */
 app.defaultConfiguration = function defaultConfiguration() {
   var env = process.env.NODE_ENV || 'development';
 
@@ -80,7 +79,7 @@ app.defaultConfiguration = function defaultConfiguration() {
 
   // trust proxy inherit back-compat
   Object.defineProperty(this.settings, trustProxyDefaultSymbol, {
-    configurable: true,
+    configurable: true, /* 可以删除 */
     value: true
   });
 
