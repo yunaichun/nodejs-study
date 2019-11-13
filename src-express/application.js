@@ -431,7 +431,7 @@ app.all = function all(path) {
 };
 
 // del -> delete alias
-
+/* app.del 方法已经废弃 */
 app.del = deprecate.function(app.delete, 'app.del: Use app.delete instead');
 
 /**
@@ -442,7 +442,7 @@ app.del = deprecate.function(app.delete, 'app.del: Use app.delete instead');
  *
  * @private
  */
-
+/* 调用 router 的 handle 方法 */
 app.handle = function handle(req, res, callback) {
   var router = this._router;
 
@@ -471,11 +471,78 @@ app.handle = function handle(req, res, callback) {
  *
  * @public
  */
-
+/* 调用 router 实例的 route 方法 */
 app.route = function route(path) {
   this.lazyrouter();
   return this._router.route(path);
 };
+
+/**
+ * Proxy to `Router#param()` with one added api feature. The _name_ parameter
+ * can be an array of names.
+ *
+ * See the Router#param() docs for more details.
+ *
+ * @param {String|Array} name
+ * @param {Function} fn
+ * @return {app} for chaining
+ * @public
+ */
+/* 调用 route 的 param 方法 */
+app.param = function param(name, fn) {
+  this.lazyrouter();
+
+  if (Array.isArray(name)) {
+    for (var i = 0; i < name.length; i++) {
+      this.param(name[i], fn);
+    }
+
+    return this;
+  }
+
+  this._router.param(name, fn);
+
+  return this;
+};
+
+/**
+ * Return the app's absolute pathname
+ * based on the parent(s) that have
+ * mounted it.
+ *
+ * For example if the application was
+ * mounted as "/admin", which itself
+ * was mounted as "/blog" then the
+ * return value would be "/blog/admin".
+ *
+ * @return {String}
+ * @private
+ */
+/* 返回绝对路径 */
+app.path = function path() {
+  return this.parent
+    ? this.parent.path() + this.mountpath
+    : '';
+};
+
+/**
+ * Delegate `.VERB(...)` calls to `router.VERB(...)`.
+ */
+
+methods.forEach(function(method){
+  app[method] = function(path){
+    if (method === 'get' && arguments.length === 1) {
+      // app.get(setting)
+      return this.set(path);
+    }
+
+    this.lazyrouter();
+
+    var route = this._router.route(path);
+    route[method].apply(route, slice.call(arguments, 1));
+    return this;
+  };
+});
 
 /**
  * Register the given template engine callback `fn`
@@ -526,73 +593,6 @@ app.engine = function engine(ext, fn) {
 
   return this;
 };
-
-/**
- * Proxy to `Router#param()` with one added api feature. The _name_ parameter
- * can be an array of names.
- *
- * See the Router#param() docs for more details.
- *
- * @param {String|Array} name
- * @param {Function} fn
- * @return {app} for chaining
- * @public
- */
-
-app.param = function param(name, fn) {
-  this.lazyrouter();
-
-  if (Array.isArray(name)) {
-    for (var i = 0; i < name.length; i++) {
-      this.param(name[i], fn);
-    }
-
-    return this;
-  }
-
-  this._router.param(name, fn);
-
-  return this;
-};
-
-/**
- * Return the app's absolute pathname
- * based on the parent(s) that have
- * mounted it.
- *
- * For example if the application was
- * mounted as "/admin", which itself
- * was mounted as "/blog" then the
- * return value would be "/blog/admin".
- *
- * @return {String}
- * @private
- */
-
-app.path = function path() {
-  return this.parent
-    ? this.parent.path() + this.mountpath
-    : '';
-};
-
-/**
- * Delegate `.VERB(...)` calls to `router.VERB(...)`.
- */
-
-methods.forEach(function(method){
-  app[method] = function(path){
-    if (method === 'get' && arguments.length === 1) {
-      // app.get(setting)
-      return this.set(path);
-    }
-
-    this.lazyrouter();
-
-    var route = this._router.route(path);
-    route[method].apply(route, slice.call(arguments, 1));
-    return this;
-  };
-});
 
 /**
  * Render the given view `name` name with `options`
