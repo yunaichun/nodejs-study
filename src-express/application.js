@@ -293,6 +293,83 @@ app.listen = function listen() {
 };
 
 /**
+ * Proxy `Router#use()` to add middleware to the app router.
+ * See Router#use() documentation for details.
+ *
+ * If the _fn_ parameter is an express app, then it will be
+ * mounted at the _route_ specified.
+ *
+ * @public
+ */
+app.use = function use(fn) {
+  var offset = 0;
+  var path = '/';
+
+  // default path to '/'
+  // disambiguate app.use([fn])
+  if (typeof fn !== 'function') {
+    /* 取出 fn */
+    var arg = fn;
+
+    /* 数组的话取第一个 */
+    while (Array.isArray(arg) && arg.length !== 0) {
+      arg = arg[0];
+    }
+
+    // first arg is the path
+    /* 第一项为路径 */
+    if (typeof arg !== 'function') {
+      offset = 1;
+      path = fn;
+    }
+  }
+
+  /* 取出传递的 fns 回调函数 */
+  var fns = flatten(slice.call(arguments, offset));
+
+  if (fns.length === 0) {
+    throw new TypeError('app.use() requires a middleware function')
+  }
+
+  // setup router
+  /* 拿到路由的配置信息 */
+  this.lazyrouter();
+  var router = this._router;
+
+  /* 循环遍历中间件 */
+  fns.forEach(function (fn) {
+    // non-express app
+    /* 调用路由的 use 方法 */
+    if (!fn || !fn.handle || !fn.set) {
+      return router.use(path, fn);
+    }
+
+    debug('.use app under %s', path);
+    fn.mountpath = path;
+    fn.parent = this;
+
+    // restore .app property on req and res
+    router.use(path, function mounted_app(req, res, next) {
+      var orig = req.app;
+      /* 调用 fn 上面的 handle 方法 */
+      fn.handle(req, res, function (err) {
+        /* 设置原型： req = Object.create(req.app.request) */
+        setPrototypeOf(req, orig.request)
+        /* 设置原型： res = Object.create(req.app.response) */
+        setPrototypeOf(res, orig.response)
+        next(err);
+      });
+    });
+
+    // mounted an app
+    /* 触发 mount 事件 */
+    fn.emit('mount', this);
+  }, this);
+
+  return this;
+};
+
+/**
  * lazily adds the base router if it has not yet been added.
  *
  * We cannot add the base router in the defaultConfiguration because
@@ -300,13 +377,16 @@ app.listen = function listen() {
  *
  * @private
  */
+/* app.use 内部调用方法 */
 app.lazyrouter = function lazyrouter() {
   if (!this._router) {
+    /* 实例化路由 Router */
     this._router = new Router({
       caseSensitive: this.enabled('case sensitive routing'),
       strict: this.enabled('strict routing')
     });
 
+    /* 调用路由的 use 方法 */
     this._router.use(query(this.get('query parser fn')));
     this._router.use(middleware.init(this));
   }
@@ -338,73 +418,6 @@ app.handle = function handle(req, res, callback) {
   }
 
   router.handle(req, res, done);
-};
-
-/**
- * Proxy `Router#use()` to add middleware to the app router.
- * See Router#use() documentation for details.
- *
- * If the _fn_ parameter is an express app, then it will be
- * mounted at the _route_ specified.
- *
- * @public
- */
-
-app.use = function use(fn) {
-  var offset = 0;
-  var path = '/';
-
-  // default path to '/'
-  // disambiguate app.use([fn])
-  if (typeof fn !== 'function') {
-    var arg = fn;
-
-    while (Array.isArray(arg) && arg.length !== 0) {
-      arg = arg[0];
-    }
-
-    // first arg is the path
-    if (typeof arg !== 'function') {
-      offset = 1;
-      path = fn;
-    }
-  }
-
-  var fns = flatten(slice.call(arguments, offset));
-
-  if (fns.length === 0) {
-    throw new TypeError('app.use() requires a middleware function')
-  }
-
-  // setup router
-  this.lazyrouter();
-  var router = this._router;
-
-  fns.forEach(function (fn) {
-    // non-express app
-    if (!fn || !fn.handle || !fn.set) {
-      return router.use(path, fn);
-    }
-
-    debug('.use app under %s', path);
-    fn.mountpath = path;
-    fn.parent = this;
-
-    // restore .app property on req and res
-    router.use(path, function mounted_app(req, res, next) {
-      var orig = req.app;
-      fn.handle(req, res, function (err) {
-        setPrototypeOf(req, orig.request)
-        setPrototypeOf(res, orig.response)
-        next(err);
-      });
-    });
-
-    // mounted an app
-    fn.emit('mount', this);
-  }, this);
-
-  return this;
 };
 
 /**
