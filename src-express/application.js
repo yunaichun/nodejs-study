@@ -267,6 +267,32 @@ app.set = function set(setting, val) {
 };
 
 /**
+ * Listen for connections.
+ *
+ * A node `http.Server` is returned, with this
+ * application (which is a `Function`) as its
+ * callback. If you wish to create both an HTTP
+ * and HTTPS server you may do so with the "http"
+ * and "https" modules as shown here:
+ *
+ *    var http = require('http')
+ *      , https = require('https')
+ *      , express = require('express')
+ *      , app = express();
+ *
+ *    http.createServer(app).listen(80);
+ *    https.createServer({ ... }, app).listen(443);
+ *
+ * @return {http.Server}
+ * @public
+ */
+/* app.listen 启动服务并且监听端口 */
+app.listen = function listen() {
+  var server = http.createServer(this);
+  return server.listen.apply(server, arguments);
+};
+
+/**
  * lazily adds the base router if it has not yet been added.
  *
  * We cannot add the base router in the defaultConfiguration because
@@ -619,32 +645,6 @@ app.render = function render(name, options, callback) {
 
   // render
   tryRender(view, renderOptions, done);
-};
-
-/**
- * Listen for connections.
- *
- * A node `http.Server` is returned, with this
- * application (which is a `Function`) as its
- * callback. If you wish to create both an HTTP
- * and HTTPS server you may do so with the "http"
- * and "https" modules as shown here:
- *
- *    var http = require('http')
- *      , https = require('https')
- *      , express = require('express')
- *      , app = express();
- *
- *    http.createServer(app).listen(80);
- *    https.createServer({ ... }, app).listen(443);
- *
- * @return {http.Server}
- * @public
- */
-
-app.listen = function listen() {
-  var server = http.createServer(this);
-  return server.listen.apply(server, arguments);
 };
 
 /**
