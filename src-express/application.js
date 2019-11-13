@@ -616,7 +616,12 @@ app.engine = function engine(ext, fn) {
  * @param {Function} callback
  * @public
  */
-app.render = function render(name, options, callback) {
+/* 使用方法：
+  app.set('views', path.join(__dirname, 'views'));
+  app.set('view engine', 'jade');
+  res.render('index');
+ */
+app.render = function render(name, render, callback) {
   var cache = this.cache;
   var done = callback;
   var engines = this.engines;
@@ -625,42 +630,52 @@ app.render = function render(name, options, callback) {
   var view;
 
   // support callback function as second arg
+  /* 只有 2 个参数，没有 render */
   if (typeof options === 'function') {
     done = options;
     opts = {};
   }
 
   // merge app.locals
+  /* 将 this.locals 合并进来 */
   merge(renderOptions, this.locals);
 
   // merge options._locals
+  /* 将传进来的 _locals 合并进来 */
   if (opts._locals) {
     merge(renderOptions, opts._locals);
   }
 
   // merge options
+  /* 将整个 opts 合并进来 */
   merge(renderOptions, opts);
 
   // set .cache unless explicitly provided
+  /* 确保 cache 开启 */
   if (renderOptions.cache == null) {
     renderOptions.cache = this.enabled('view cache');
   }
 
   // primed cache
+  /* 从缓存中获取 view 模版 */
   if (renderOptions.cache) {
     view = cache[name];
   }
 
   // view
+  /* 初始渲染的时候 cache 中不存在 */
   if (!view) {
+    /* 获取 view */
     var View = this.get('view');
 
+    /* 从 views 根目录里面取到 name 模版，进行 View 视图实例化 */
     view = new View(name, {
       defaultEngine: this.get('view engine'),
       root: this.get('views'),
       engines: engines
     });
 
+    /* 不存在 path 路径，直接抛出异常 */
     if (!view.path) {
       var dirs = Array.isArray(view.root) && view.root.length > 1
         ? 'directories "' + view.root.slice(0, -1).join('", "') + '" or "' + view.root[view.root.length - 1] + '"'
@@ -671,14 +686,30 @@ app.render = function render(name, options, callback) {
     }
 
     // prime the cache
+    /* 将 view 视图存入 cache 缓存 */
     if (renderOptions.cache) {
       cache[name] = view;
     }
   }
 
   // render
+   /* 调用 view 的 render 方法 */
   tryRender(view, renderOptions, done);
 };
+
+/**
+ * Try rendering a view.
+ * @private
+ */
+/* 渲染模版 */
+function tryRender(view, options, callback) {
+  try {
+    /* 调用 view 的 render 方法 */
+    view.render(options, callback);
+  } catch (err) {
+    callback(err);
+  }
+}
 
 /**
  * Log error using console.error.
@@ -686,21 +717,8 @@ app.render = function render(name, options, callback) {
  * @param {Error} err
  * @private
  */
-
+/* 打印错误 */
 function logerror(err) {
   /* istanbul ignore next */
   if (this.get('env') !== 'test') console.error(err.stack || err.toString());
-}
-
-/**
- * Try rendering a view.
- * @private
- */
-
-function tryRender(view, options, callback) {
-  try {
-    view.render(options, callback);
-  } catch (err) {
-    callback(err);
-  }
 }
