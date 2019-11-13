@@ -12,24 +12,37 @@
  * Module dependencies.
  * @private
  */
-
-var finalhandler = require('finalhandler');
-var Router = require('./router');
+/*nodejs模块【http://nodejs.cn/api/http.html#http_http】*/
+var http = require('http');
+/* 可以获取到 http 所有的合理请求方法名 【https://www.npmjs.com/package/methods】 */
 var methods = require('methods');
+/* path 路径 【http://nodejs.cn/api/path.html】 */
+var resolve = require('path').resolve;
+/*js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
+var debug = require('debug')('express:application');
+/* 调用Node.js函数作为响应HTTP请求的最后一步 【https://www.npmjs.com/package/finalhandler】 */
+var finalhandler = require('finalhandler');
+
+/*判断当前在运行 express 的某些接口或者方法是否过期，如果过期，会给出一个升级的提示【https://www.npmjs.com/package/depd】*/
+var deprecate = require('depd')('express');
+/* 展平嵌套数组 【https://www.npmjs.com/package/array-flatten】 */
+var flatten = require('array-flatten');
+/* 对象合并 【https://www.npmjs.com/package/utils-merge】 */
+var merge = require('utils-merge');
+/* 设置原型对象的 【https://www.npmjs.com/package/setprototypeof】 */
+var setPrototypeOf = require('setprototypeof')
+var slice = Array.prototype.slice;
+
+/* 中间件 */
 var middleware = require('./middleware/init');
 var query = require('./middleware/query');
-var debug = require('debug')('express:application');
+/* 路由 */
+var Router = require('./router');
 var View = require('./view');
-var http = require('http');
+/* 工具类 */
 var compileETag = require('./utils').compileETag;
 var compileQueryParser = require('./utils').compileQueryParser;
 var compileTrust = require('./utils').compileTrust;
-var deprecate = require('depd')('express');
-var flatten = require('array-flatten');
-var merge = require('utils-merge');
-var resolve = require('path').resolve;
-var setPrototypeOf = require('setprototypeof')
-var slice = Array.prototype.slice;
 
 /**
  * Application prototype.
@@ -52,12 +65,17 @@ var trustProxyDefaultSymbol = '@@symbol:trust_proxy_default';
  *
  * @private
  */
-/* 初始化 */
+/* 调用时机：
+  1、实际调用是在 var express = require('express'); var app = express();
+  2、express.js 文件中的 createApplication 方法中调用
+*/
 app.init = function init() {
+  /* 数据初始化 */
   this.cache = {};
   this.engines = {};
   this.settings = {};
 
+  /* 配置初始化 */
   this.defaultConfiguration();
 };
 
@@ -65,11 +83,13 @@ app.init = function init() {
  * Initialize application configuration.
  * @private
  */
-/* 设置初始配置 */
+/* 配置初始化 */
 app.defaultConfiguration = function defaultConfiguration() {
+  /* 默认为 development 环境 */
   var env = process.env.NODE_ENV || 'development';
 
   // default settings
+  /* 设置默认的解析方法 */
   this.enable('x-powered-by');
   this.set('etag', 'weak');
   this.set('env', env);
@@ -78,22 +98,26 @@ app.defaultConfiguration = function defaultConfiguration() {
   this.set('trust proxy', false);
 
   // trust proxy inherit back-compat
+  /* this.settings 设置 trustProxyDefaultSymbol 属性 为 true */
   Object.defineProperty(this.settings, trustProxyDefaultSymbol, {
     configurable: true, /* 可以删除 */
     value: true
   });
 
+  /* 打印当前环境 */
   debug('booting in %s mode', env);
 
   this.on('mount', function onmount(parent) {
     // inherit trust proxy
-    if (this.settings[trustProxyDefaultSymbol] === true
+    /* trustProxyDefaultSymbol 值为 true 但是父 settings  trust proxy fn 为 */
+    if (this.settings[trustProxyDefaultSymbol] === true 
       && typeof parent.settings['trust proxy fn'] === 'function') {
       delete this.settings['trust proxy'];
       delete this.settings['trust proxy fn'];
     }
 
     // inherit protos
+    /* 设置原型 */
     setPrototypeOf(this.request, parent.request)
     setPrototypeOf(this.response, parent.response)
     setPrototypeOf(this.engines, parent.engines)
@@ -118,11 +142,128 @@ app.defaultConfiguration = function defaultConfiguration() {
     this.enable('view cache');
   }
 
+  /* 设置路由 */
   Object.defineProperty(this, 'router', {
     get: function() {
       throw new Error('\'app.router\' is deprecated!\nPlease see the 3.x to 4.x migration guide for details on how to update your app.');
     }
   });
+};
+
+/**
+ * Check if `setting` is enabled (truthy).
+ *
+ *    app.enabled('foo')
+ *    // => false
+ *
+ *    app.enable('foo')
+ *    app.enabled('foo')
+ *    // => true
+ *
+ * @param {String} setting
+ * @return {Boolean}
+ * @public
+ */
+/* 返回 this.set(setting) 的结果 */
+app.enabled = function enabled(setting) {
+  return Boolean(this.set(setting));
+};
+
+/**
+ * Check if `setting` is disabled.
+ *
+ *    app.disabled('foo')
+ *    // => true
+ *
+ *    app.enable('foo')
+ *    app.disabled('foo')
+ *    // => false
+ *
+ * @param {String} setting
+ * @return {Boolean}
+ * @public
+ */
+/* 返回 this.set(setting) 的反结果 */
+app.disabled = function disabled(setting) {
+  return !this.set(setting);
+};
+
+/**
+ * Enable `setting`.
+ *
+ * @param {String} setting
+ * @return {app} for chaining
+ * @public
+ */
+/* 返回 this.set(setting, true) 的结果 */
+app.enable = function enable(setting) {
+  return this.set(setting, true);
+};
+
+/**
+ * Disable `setting`.
+ *
+ * @param {String} setting
+ * @return {app} for chaining
+ * @public
+ */
+/* 返回 this.set(setting, false) 的结果 */
+app.disable = function disable(setting) {
+  return this.set(setting, false);
+};
+
+/**
+ * Assign `setting` to `val`, or return `setting`'s value.
+ *
+ *    app.set('foo', 'bar');
+ *    app.set('foo');
+ *    // => "bar"
+ *
+ * Mounted servers inherit their parent server's settings.
+ *
+ * @param {String} setting
+ * @param {*} [val]
+ * @return {Server} for chaining
+ * @public
+ */
+/* 给 this.settings 对象下设置 key 和 value 分别为 setting 和 val */
+app.set = function set(setting, val) {
+  /* 只传入一个参数: 返回 this.settings[setting] */
+  if (arguments.length === 1) {
+    // app.get(setting)
+    return this.settings[setting];
+  }
+
+  debug('set "%s" to %o', setting, val);
+
+  // set value
+  this.settings[setting] = val;
+
+  // trigger matched settings
+  switch (setting) {
+    /* 编译 compileETag */
+    case 'etag':
+      this.set('etag fn', compileETag(val));
+      break;
+    /* 编译 compileQueryParser */
+    case 'query parser':
+      this.set('query parser fn', compileQueryParser(val));
+      break;
+    /* 编译 compileTrust */
+    case 'trust proxy':
+      this.set('trust proxy fn', compileTrust(val));
+
+      // trust proxy inherit back-compat
+      Object.defineProperty(this.settings, trustProxyDefaultSymbol, {
+        configurable: true,
+        value: false
+      });
+
+      break;
+  }
+
+  /* 返回 this */
+  return this;
 };
 
 /**
@@ -334,55 +475,6 @@ app.param = function param(name, fn) {
 };
 
 /**
- * Assign `setting` to `val`, or return `setting`'s value.
- *
- *    app.set('foo', 'bar');
- *    app.set('foo');
- *    // => "bar"
- *
- * Mounted servers inherit their parent server's settings.
- *
- * @param {String} setting
- * @param {*} [val]
- * @return {Server} for chaining
- * @public
- */
-
-app.set = function set(setting, val) {
-  if (arguments.length === 1) {
-    // app.get(setting)
-    return this.settings[setting];
-  }
-
-  debug('set "%s" to %o', setting, val);
-
-  // set value
-  this.settings[setting] = val;
-
-  // trigger matched settings
-  switch (setting) {
-    case 'etag':
-      this.set('etag fn', compileETag(val));
-      break;
-    case 'query parser':
-      this.set('query parser fn', compileQueryParser(val));
-      break;
-    case 'trust proxy':
-      this.set('trust proxy fn', compileTrust(val));
-
-      // trust proxy inherit back-compat
-      Object.defineProperty(this.settings, trustProxyDefaultSymbol, {
-        configurable: true,
-        value: false
-      });
-
-      break;
-  }
-
-  return this;
-};
-
-/**
  * Return the app's absolute pathname
  * based on the parent(s) that have
  * mounted it.
@@ -400,68 +492,6 @@ app.path = function path() {
   return this.parent
     ? this.parent.path() + this.mountpath
     : '';
-};
-
-/**
- * Check if `setting` is enabled (truthy).
- *
- *    app.enabled('foo')
- *    // => false
- *
- *    app.enable('foo')
- *    app.enabled('foo')
- *    // => true
- *
- * @param {String} setting
- * @return {Boolean}
- * @public
- */
-
-app.enabled = function enabled(setting) {
-  return Boolean(this.set(setting));
-};
-
-/**
- * Check if `setting` is disabled.
- *
- *    app.disabled('foo')
- *    // => true
- *
- *    app.enable('foo')
- *    app.disabled('foo')
- *    // => false
- *
- * @param {String} setting
- * @return {Boolean}
- * @public
- */
-
-app.disabled = function disabled(setting) {
-  return !this.set(setting);
-};
-
-/**
- * Enable `setting`.
- *
- * @param {String} setting
- * @return {app} for chaining
- * @public
- */
-
-app.enable = function enable(setting) {
-  return this.set(setting, true);
-};
-
-/**
- * Disable `setting`.
- *
- * @param {String} setting
- * @return {app} for chaining
- * @public
- */
-
-app.disable = function disable(setting) {
-  return this.set(setting, false);
 };
 
 /**

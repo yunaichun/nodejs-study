@@ -18,10 +18,14 @@ var contentType = require('content-type');
 var deprecate = require('depd')('express');
 var flatten = require('array-flatten');
 var mime = require('send').mime;
+/* 解析 etag */
 var etag = require('etag');
-var proxyaddr = require('proxy-addr');
-var qs = require('qs');
+/* 解析 query parser */
 var querystring = require('querystring');
+/* 解析 query parser */
+var qs = require('qs');
+/* 解析 trust proxy  */
+var proxyaddr = require('proxy-addr');
 
 /**
  * Return strong ETag for `body`.
@@ -31,7 +35,7 @@ var querystring = require('querystring');
  * @return {String}
  * @api private
  */
-
+/* compileETag: strong ETag */
 exports.etag = createETagGenerator({ weak: false })
 
 /**
@@ -42,7 +46,7 @@ exports.etag = createETagGenerator({ weak: false })
  * @return {String}
  * @api private
  */
-
+/* compileETag: weak ETag */
 exports.wetag = createETagGenerator({ weak: true })
 
 /**
@@ -141,13 +145,37 @@ function acceptParams(str, index) {
 }
 
 /**
+ * Set the charset in a given Content-Type string.
+ *
+ * @param {String} type
+ * @param {String} charset
+ * @return {String}
+ * @api private
+ */
+
+exports.setCharset = function setCharset(type, charset) {
+  if (!type || !charset) {
+    return type;
+  }
+
+  // parse type
+  var parsed = contentType.parse(type);
+
+  // set charset
+  parsed.parameters.charset = charset;
+
+  // format type
+  return contentType.format(parsed);
+};
+
+/**
  * Compile "etag" value to function.
  *
  * @param  {Boolean|String|Function} val
  * @return {Function}
  * @api private
  */
-
+/* 一、解析 http 请求里面的 etag */
 exports.compileETag = function(val) {
   var fn;
 
@@ -181,7 +209,7 @@ exports.compileETag = function(val) {
  * @return {Function}
  * @api private
  */
-
+/* 二、解析 http 请求里面的 query parser */
 exports.compileQueryParser = function compileQueryParser(val) {
   var fn;
 
@@ -191,15 +219,19 @@ exports.compileQueryParser = function compileQueryParser(val) {
 
   switch (val) {
     case true:
+      /* querystring 库 */
       fn = querystring.parse;
       break;
     case false:
+      /* 空对象 */
       fn = newObject;
       break;
     case 'extended':
+      /* qs.parse */
       fn = parseExtendedQueryString;
       break;
     case 'simple':
+      /* querystring 库 */
       fn = querystring.parse;
       break;
     default:
@@ -216,7 +248,7 @@ exports.compileQueryParser = function compileQueryParser(val) {
  * @return {Function}
  * @api private
  */
-
+/* 三、解析 http 请求里面的 trust proxy  */
 exports.compileTrust = function(val) {
   if (typeof val === 'function') return val;
 
@@ -239,30 +271,6 @@ exports.compileTrust = function(val) {
 }
 
 /**
- * Set the charset in a given Content-Type string.
- *
- * @param {String} type
- * @param {String} charset
- * @return {String}
- * @api private
- */
-
-exports.setCharset = function setCharset(type, charset) {
-  if (!type || !charset) {
-    return type;
-  }
-
-  // parse type
-  var parsed = contentType.parse(type);
-
-  // set charset
-  parsed.parameters.charset = charset;
-
-  // format type
-  return contentType.format(parsed);
-};
-
-/**
  * Create an ETag generator function, generating ETags with
  * the given options.
  *
@@ -270,7 +278,7 @@ exports.setCharset = function setCharset(type, charset) {
  * @return {function}
  * @private
  */
-
+/* compileETag: 根据给的配置生成 etag */
 function createETagGenerator (options) {
   return function generateETag (body, encoding) {
     var buf = !Buffer.isBuffer(body)
@@ -287,7 +295,7 @@ function createETagGenerator (options) {
  * @return {Object}
  * @private
  */
-
+/* compileQueryParser: qs.parse */
 function parseExtendedQueryString(str) {
   return qs.parse(str, {
     allowPrototypes: true
@@ -300,7 +308,7 @@ function parseExtendedQueryString(str) {
  * @return {Object}
  * @api private
  */
-
+/* compileQueryParser：返回新对象 */
 function newObject() {
   return {};
 }
