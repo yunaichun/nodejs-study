@@ -528,16 +528,17 @@ app.path = function path() {
 /**
  * Delegate `.VERB(...)` calls to `router.VERB(...)`.
  */
-
+/* app 下面挂载所有的 http 请求方法 */
 methods.forEach(function(method){
   app[method] = function(path){
+    /* get 请求 没有任何参数 */
     if (method === 'get' && arguments.length === 1) {
       // app.get(setting)
       return this.set(path);
     }
 
+    /* 调用 route 的 method 方法 */
     this.lazyrouter();
-
     var route = this._router.route(path);
     route[method].apply(route, slice.call(arguments, 1));
     return this;
@@ -577,18 +578,23 @@ methods.forEach(function(method){
  * @return {app} for chaining
  * @public
  */
-
+/* 设置模版引擎：
+  app.engine('ejs', require('ejs').__express); 
+*/
 app.engine = function engine(ext, fn) {
+  /* 如果 fn 不是函数就报错 */
   if (typeof fn !== 'function') {
     throw new Error('callback function required');
   }
 
   // get file extension
+  /* 获取模版扩展名 */
   var extension = ext[0] !== '.'
     ? '.' + ext
     : ext;
 
   // store engine
+  /* 存储模版 */
   this.engines[extension] = fn;
 
   return this;
@@ -610,7 +616,6 @@ app.engine = function engine(ext, fn) {
  * @param {Function} callback
  * @public
  */
-
 app.render = function render(name, options, callback) {
   var cache = this.cache;
   var done = callback;
