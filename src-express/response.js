@@ -455,21 +455,26 @@ res.jsonp = function jsonp(obj) {
   var escape = app.get('json escape')
   var replacer = app.get('json replacer');
   var spaces = app.get('json spaces');
+  /* res 响应的请求体 body */
   var body = stringify(val, replacer, spaces, escape)
+  /* 获取 query 查询参数上面的 callback 回调函数的名称 */
   var callback = this.req.query[app.get('jsonp callback name')];
 
   // content-type
+  /* 响应头没有 Content-Type 的情况 */
   if (!this.get('Content-Type')) {
     this.set('X-Content-Type-Options', 'nosniff');
     this.set('Content-Type', 'application/json');
   }
 
   // fixup callback
+  /* callback 可能是数组，只会取第一个 */
   if (Array.isArray(callback)) {
     callback = callback[0];
   }
 
   // jsonp
+  /* callback 存在的情况：执行 callback 传入 body 作为返回值 */
   if (typeof callback === 'string' && callback.length !== 0) {
     this.set('X-Content-Type-Options', 'nosniff');
     this.set('Content-Type', 'text/javascript');
