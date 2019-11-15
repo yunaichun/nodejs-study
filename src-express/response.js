@@ -433,7 +433,7 @@ res.json = function json(obj) {
  * @param {string|number|boolean|object} obj
  * @public
  */
-
+/* 调用 当前文件 的 send 方法 */
 res.jsonp = function jsonp(obj) {
   var val = obj;
 
@@ -535,7 +535,7 @@ res.jsonp = function jsonp(obj) {
  *
  * @public
  */
-
+/* 调用 file 的 pipe 方法 将文件写入到响应中：file.pipe(res) */
 res.sendFile = function sendFile(path, options, callback) {
   var done = callback;
   var req = this.req;
@@ -543,10 +543,10 @@ res.sendFile = function sendFile(path, options, callback) {
   var next = req.next;
   var opts = options || {};
 
+  /* path 必须存在同时为字符串 */
   if (!path) {
     throw new TypeError('path argument is required to res.sendFile');
   }
-
   if (typeof path !== 'string') {
     throw new TypeError('path must be a string to res.sendFile')
   }
@@ -557,15 +557,18 @@ res.sendFile = function sendFile(path, options, callback) {
     opts = {};
   }
 
+  /* opts 上没有 root 同时不是绝对路径，会报错 */
   if (!opts.root && !isAbsolute(path)) {
     throw new TypeError('path must be absolute or specify root to res.sendFile');
   }
 
   // create file stream
   var pathname = encodeURI(path);
+  /* 将接收到 req 请求写入到文件中  */
   var file = send(req, pathname, opts);
 
   // transfer
+  /* 调用 file 的 pipe 方法 将文件写入到响应中：file.pipe(res) */
   sendfile(res, file, opts, function (err) {
     if (done) return done(err);
     if (err && err.code === 'EISDIR') return next();
@@ -617,7 +620,7 @@ res.sendFile = function sendFile(path, options, callback) {
  *
  * @public
  */
-
+/* 调用 file 的 pipe 方法 将文件写入到响应中：file.pipe(res) */
 res.sendfile = function (path, options, callback) {
   var done = callback;
   var req = this.req;
@@ -632,6 +635,7 @@ res.sendfile = function (path, options, callback) {
   }
 
   // create file stream
+  /* 将接收到 req 请求写入到文件中  */
   var file = send(req, path, opts);
 
   // transfer
@@ -645,7 +649,6 @@ res.sendfile = function (path, options, callback) {
     }
   });
 };
-
 res.sendfile = deprecate.function(res.sendfile,
   'res.sendfile: Use res.sendFile instead');
 
@@ -666,7 +669,7 @@ res.sendfile = deprecate.function(res.sendfile,
  *
  * @public
  */
-
+/* 调用当前文件的 sendFile 方法 */
 res.download = function download (path, filename, options, callback) {
   var done = callback;
   var name = filename;
@@ -683,11 +686,13 @@ res.download = function download (path, filename, options, callback) {
   }
 
   // set Content-Disposition when file is sent
+  /* 设置 Content-Disposition */
   var headers = {
     'Content-Disposition': contentDisposition(name || path)
   };
 
   // merge user-provided headers
+  /* 合并用户传进来的 headers */
   if (opts && opts.headers) {
     var keys = Object.keys(opts.headers)
     for (var i = 0; i < keys.length; i++) {
@@ -699,10 +704,12 @@ res.download = function download (path, filename, options, callback) {
   }
 
   // merge user-provided options
+  /* 创建配置项里面的 headers */
   opts = Object.create(opts)
   opts.headers = headers
 
   // Resolve the full path for sendFile
+  /* 全部路径 */
   var fullPath = resolve(path);
 
   // send file
@@ -1066,6 +1073,8 @@ res.render = function render(view, options, callback) {
 };
 
 // pipe the send file stream
+/* 调用 file 的 pipe 方法 将文件写入到响应中
+file.pipe(res) */
 function sendfile(res, file, options, callback) {
   var done = false;
   var streaming;
