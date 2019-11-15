@@ -316,11 +316,15 @@ req.is = function is(types) {
  * @return {String}
  * @public
  */
-
+/* 
+1、app 中的 get 方法获取 trust proxy fn 
+2、当前文件 get 方法获取 X-Forwarded-Proto
+*/
 defineGetter(req, 'protocol', function protocol(){
   var proto = this.connection.encrypted
     ? 'https'
     : 'http';
+  /* 获取 app 中的 get 方法 */
   var trust = this.app.get('trust proxy fn');
 
   if (!trust(this.connection.remoteAddress, 0)) {
@@ -345,7 +349,7 @@ defineGetter(req, 'protocol', function protocol(){
  * @return {Boolean}
  * @public
  */
-
+/* 返回是不是 https 请求 */
 defineGetter(req, 'secure', function secure(){
   return this.protocol === 'https';
 });
@@ -359,7 +363,7 @@ defineGetter(req, 'secure', function secure(){
  * @return {String}
  * @public
  */
-
+/* 当前文件 get 方法获取 trust proxy fn */
 defineGetter(req, 'ip', function ip(){
   var trust = this.app.get('trust proxy fn');
   return proxyaddr(this, trust);
@@ -376,7 +380,7 @@ defineGetter(req, 'ip', function ip(){
  * @return {Array}
  * @public
  */
-
+/* 当前文件 get 方法获取 trust proxy fn */
 defineGetter(req, 'ips', function ips() {
   var trust = this.app.get('trust proxy fn');
   var addrs = proxyaddr.all(this, trust);
@@ -402,7 +406,7 @@ defineGetter(req, 'ips', function ips() {
  * @return {Array}
  * @public
  */
-
+/* app 中的 get 方法获取 subdomain offset */
 defineGetter(req, 'subdomains', function subdomains() {
   var hostname = this.hostname;
 
@@ -422,7 +426,7 @@ defineGetter(req, 'subdomains', function subdomains() {
  * @return {String}
  * @public
  */
-
+/* 获取当前文件 this 下的 pathname 属性 */
 defineGetter(req, 'path', function path() {
   return parse(this).pathname;
 });
@@ -437,7 +441,11 @@ defineGetter(req, 'path', function path() {
  * @return {String}
  * @public
  */
-
+/* 
+1、app 中的 get 方法获取 trust proxy fn 
+2、当前文件 get 方法获取 X-Forwarded-Host
+3、当前文件 get 方法获取 Host
+*/
 defineGetter(req, 'hostname', function hostname(){
   var trust = this.app.get('trust proxy fn');
   var host = this.get('X-Forwarded-Host');
@@ -464,7 +472,7 @@ defineGetter(req, 'hostname', function hostname(){
 });
 
 // TODO: change req.host to return host in next major
-
+/* 与当前方法获取 hostname 是一样的 */
 defineGetter(req, 'host', deprecate.function(function host(){
   return this.hostname;
 }, 'req.host: Use req.hostname instead'));
@@ -477,7 +485,7 @@ defineGetter(req, 'host', deprecate.function(function host(){
  * @return {Boolean}
  * @public
  */
-
+/* 缓存相关: 获取请求头是否更新 */
 defineGetter(req, 'fresh', function(){
   var method = this.method;
   var res = this.res
@@ -489,8 +497,8 @@ defineGetter(req, 'fresh', function(){
   // 2xx or 304 as per rfc2616 14.26
   if ((status >= 200 && status < 300) || 304 === status) {
     return fresh(this.headers, {
-      'etag': res.get('ETag'),
-      'last-modified': res.get('Last-Modified')
+      'etag': res.get('ETag'), /* 服务端下发的，与客户端的 If-None-Match 对应 */
+      'last-modified': res.get('Last-Modified') /* 服务端下发的，与客户端的 If-Modified-Since 对应 */
     })
   }
 
@@ -505,7 +513,7 @@ defineGetter(req, 'fresh', function(){
  * @return {Boolean}
  * @public
  */
-
+/* 返回 !this.fresh */
 defineGetter(req, 'stale', function stale(){
   return !this.fresh;
 });
@@ -516,7 +524,7 @@ defineGetter(req, 'stale', function stale(){
  * @return {Boolean}
  * @public
  */
-
+/* 获取当前文件 X-Requested-With */
 defineGetter(req, 'xhr', function xhr(){
   var val = this.get('X-Requested-With') || '';
   return val.toLowerCase() === 'xmlhttprequest';
@@ -530,6 +538,7 @@ defineGetter(req, 'xhr', function xhr(){
  * @param {Function} getter
  * @private
  */
+/* 访问器属性：只具有获取 name 的 getter 方法 */
 function defineGetter(obj, name, getter) {
   Object.defineProperty(obj, name, {
     configurable: true,
