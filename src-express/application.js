@@ -70,9 +70,11 @@ var trustProxyDefaultSymbol = '@@symbol:trust_proxy_default';
   2、express.js 文件中的 createApplication 方法中调用
 */
 app.init = function init() {
-  /* 数据初始化 */
+  /* View 模版缓存： render 第一个参数模版名 name 为 key，对应的 View 实例为 value */
   this.cache = {};
+  /* 存储模版引擎：文件扩展为 key ， 解析引擎 fn 为 value */
   this.engines = {};
+  /* this.set 设置的所有的 key 和 value */
   this.settings = {};
 
   /* 配置初始化 */

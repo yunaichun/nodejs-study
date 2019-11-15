@@ -12,29 +12,41 @@
  * Module dependencies.
  * @private
  */
-
+/* request 请求类型 【https://www.npmjs.com/package/accepts】 */
 var accepts = require('accepts');
+/*判断当前在运行 express 的某些接口或者方法是否过期，如果过期，会给出一个升级的提示【https://www.npmjs.com/package/depd】*/
 var deprecate = require('depd')('express');
-var isIP = require('net').isIP;
+/* 判断请求类型 【https://www.npmjs.com/package/type-is】 */
 var typeis = require('type-is');
+/* nodejs模块【http://nodejs.cn/api/http.html#http_http】*/
 var http = require('http');
+/* HTTP响应新鲜度测试（etag、last-modified、if-none-match） 【https://www.npmjs.com/package/fresh】 */
 var fresh = require('fresh');
+/* range-parser 请求头处理 【https://www.npmjs.com/package/range-parser】 */
 var parseRange = require('range-parser');
+/* 使用备注解析URL 【https://www.npmjs.com/package/parseurl】 */
 var parse = require('parseurl');
+/* 确定代理请求的地址【https://www.npmjs.com/package/proxy-addr】 */
 var proxyaddr = require('proxy-addr');
+/* nodejs模块【http://nodejs.cn/api/net.html】 */
+var isIP = require('net').isIP;
 
 /**
  * Request prototype.
  * @public
  */
-
+/* 
+  IncomingMessage 对象由 http.Server 或 http.ClientRequest 创建，
+  并分别作为第一个参数传给 'request' 和 'response' 事件。
+  它可用于访问响应状态、消息头、以及数据。 
+ */
 var req = Object.create(http.IncomingMessage.prototype)
 
 /**
  * Module exports.
  * @public
  */
-
+/* 导出 req 模块 */
 module.exports = req
 
 /**
@@ -60,13 +72,14 @@ module.exports = req
  * @return {String}
  * @public
  */
-
+/* 获取请求头 */
 req.get =
 req.header = function header(name) {
+  /* 必填参数 */
   if (!name) {
     throw new TypeError('name argument is required to req.get');
   }
-
+  /* 必须字符串 */
   if (typeof name !== 'string') {
     throw new TypeError('name must be a string to req.get');
   }
@@ -128,7 +141,7 @@ req.header = function header(name) {
  * @return {String|Array|Boolean}
  * @public
  */
-
+/* 获取 req 接收的类型 content-type */
 req.accepts = function(){
   var accept = accepts(this);
   return accept.types.apply(accept, arguments);
@@ -141,12 +154,13 @@ req.accepts = function(){
  * @return {String|Array}
  * @public
  */
-
+/* 获取 req 接收的压缩类型 */
 req.acceptsEncodings = function(){
   var accept = accepts(this);
   return accept.encodings.apply(accept, arguments);
 };
 
+/* 获取 req 接收的压缩类型 */
 req.acceptsEncoding = deprecate.function(req.acceptsEncodings,
   'req.acceptsEncoding: Use acceptsEncodings instead');
 
@@ -158,12 +172,11 @@ req.acceptsEncoding = deprecate.function(req.acceptsEncodings,
  * @return {String|Array}
  * @public
  */
-
+/* 获取 req 接收的编码类型 */
 req.acceptsCharsets = function(){
   var accept = accepts(this);
   return accept.charsets.apply(accept, arguments);
 };
-
 req.acceptsCharset = deprecate.function(req.acceptsCharsets,
   'req.acceptsCharset: Use acceptsCharsets instead');
 
@@ -175,12 +188,11 @@ req.acceptsCharset = deprecate.function(req.acceptsCharsets,
  * @return {String|Array}
  * @public
  */
-
+/* 获取 req 接收的语言 */
 req.acceptsLanguages = function(){
   var accept = accepts(this);
   return accept.languages.apply(accept, arguments);
 };
-
 req.acceptsLanguage = deprecate.function(req.acceptsLanguages,
   'req.acceptsLanguage: Use acceptsLanguages instead');
 
@@ -208,10 +220,11 @@ req.acceptsLanguage = deprecate.function(req.acceptsLanguages,
  * @return {number|array}
  * @public
  */
-
+/* 获取请求头 Range */
 req.range = function range(size, options) {
   var range = this.get('Range');
   if (!range) return;
+  /* range-parser 请求头处理 */ 
   return parseRange(size, range, options);
 };
 
@@ -231,7 +244,7 @@ req.range = function range(size, options) {
  * @return {String}
  * @public
  */
-
+/* 可以获取 req.params 、 req.body 、 req.query 任意含有 name 的值 */
 req.param = function param(name, defaultValue) {
   var params = this.params || {};
   var body = this.body || {};
@@ -240,6 +253,7 @@ req.param = function param(name, defaultValue) {
   var args = arguments.length === 1
     ? 'name'
     : 'name, default';
+  /* req.params 获取动态路由, req.body 获取请求题, req.query 获取请求的参数 */
   deprecate('req.param(' + args + '): Use req.params, req.body, or req.query instead');
 
   if (null != params[name] && params.hasOwnProperty(name)) return params[name];
@@ -274,7 +288,7 @@ req.param = function param(name, defaultValue) {
  * @return {String|false|null}
  * @public
  */
-
+/* 判断请求 req 是不是 types 类型 */
 req.is = function is(types) {
   var arr = types;
 
