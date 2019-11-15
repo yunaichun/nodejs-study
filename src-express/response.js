@@ -11,41 +11,61 @@
  * Module dependencies.
  * @private
  */
-
-var Buffer = require('safe-buffer').Buffer
-var contentDisposition = require('content-disposition');
-var deprecate = require('depd')('express');
-var encodeUrl = require('encodeurl');
-var escapeHtml = require('escape-html');
+/* nodejs模块【http://nodejs.cn/api/http.html#http_http】*/
 var http = require('http');
-var isAbsolute = require('./utils').isAbsolute;
-var onFinished = require('on-finished');
+/* nodejs模块【http://nodejs.cn/api/path.html】*/
 var path = require('path');
+/* 更安全的 buffer 模块【https://www.npmjs.com/package/safe-buffer】 */
+var Buffer = require('safe-buffer').Buffer
+/*判断当前在运行 express 的某些接口或者方法是否过期，如果过期，会给出一个升级的提示【https://www.npmjs.com/package/depd】*/
+var deprecate = require('depd')('express');
+
+/* 解析响应 Content-Disposition【https://www.npmjs.com/package/content-disposition】 */
+var contentDisposition = require('content-disposition');
+/* 编码 req.url 【https://www.npmjs.com/package/encodeurl】 */
+var encodeUrl = require('encodeurl');
+/* http 特殊字符串编码 【https://www.npmjs.com/package/escape-html】 */
+var escapeHtml = require('escape-html');
+/*当 http 请求关闭，完成或者出错的时候调用注册好的回调【https://www.npmjs.com/package/on-finished】*/
+var onFinished = require('on-finished');
+/*请求状态码【https://www.npmjs.com/package/statuses】*/
 var statuses = require('statuses')
-var merge = require('utils-merge');
+/* 操作 http 响应头【https://www.npmjs.com/package/vary】 */
+var vary = require('vary');
+/* 将接收到 req 请求写入到文件中 【https://www.npmjs.com/package/send】 */
+var send = require('send');
+
+/* 设置 cookie 【https://www.npmjs.com/package/cookie】 */
+var cookie = require('cookie');
+/* 对 cookie 添加签名【https://www.npmjs.com/package/cookie-signature】 */
 var sign = require('cookie-signature').sign;
+/* 对象合并 【https://www.npmjs.com/package/utils-merge】 */
+var merge = require('utils-merge');
+
+var isAbsolute = require('./utils').isAbsolute;
 var normalizeType = require('./utils').normalizeType;
 var normalizeTypes = require('./utils').normalizeTypes;
 var setCharset = require('./utils').setCharset;
-var cookie = require('cookie');
-var send = require('send');
+
 var extname = path.extname;
 var mime = send.mime;
 var resolve = path.resolve;
-var vary = require('vary');
+
 
 /**
  * Response prototype.
  * @public
  */
-
+/* 
+  此对象由 HTTP 服务器在内部创建，而不是由用户创建。 它作为第二个参数传给 'request' 事件。
+ */
 var res = Object.create(http.ServerResponse.prototype)
 
 /**
  * Module exports.
  * @public
  */
-
+/* 导出 res 模块 */
 module.exports = res
 
 /**
@@ -62,10 +82,74 @@ var charsetRegExp = /;\s*charset\s*=/;
  * @return {ServerResponse}
  * @public
  */
-
+/* 设置 statusCode */
 res.status = function status(code) {
   this.statusCode = code;
   return this;
+};
+
+/**
+ * Set header `field` to `val`, or pass
+ * an object of header fields.
+ *
+ * Examples:
+ *
+ *    res.set('Foo', ['bar', 'baz']);
+ *    res.set('Accept', 'application/json');
+ *    res.set({ Accept: 'text/plain', 'X-API-Key': 'tobi' });
+ *
+ * Aliased as `res.header()`.
+ *
+ * @param {String|Object} field
+ * @param {String|Array} val
+ * @return {ServerResponse} for chaining
+ * @public
+ */
+/* 设置响应头 */
+res.set =
+res.header = function header(field, val) {
+  /* 只有2个参数 */
+  if (arguments.length === 2) {
+    /* 第二个参数可能是数组也可能不是数组 */
+    var value = Array.isArray(val)
+      ? val.map(String)
+      : String(val);
+
+    // add charset to content-type
+    if (field.toLowerCase() === 'content-type') {
+      /* content-type 只能设置一个 value */
+      if (Array.isArray(value)) {
+        throw new TypeError('Content-Type cannot be set to an Array');
+      }
+      /* 拼接 content-type 的 value 值 */
+      if (!charsetRegExp.test(value)) {
+        var charset = mime.charsets.lookup(value.split(';')[0]);
+        if (charset) value += '; charset=' + charset.toLowerCase();
+      }
+    }
+
+    /* 设置响应头【直接调用 res 】 */
+    this.setHeader(field, value);
+  } else {
+    /* 传递一个对象进来 */
+    for (var key in field) {
+      /* 调用 res 的 set 方法 */
+      this.set(key, field[key]);
+    }
+  }
+  return this;
+};
+
+/**
+ * Get value for header `field`.
+ *
+ * @param {String} field
+ * @return {String}
+ * @public
+ */
+/* 调用 res 的 getHeader */
+res.get = function(field){
+  return this.getHeader(field);
 };
 
 /**
@@ -730,63 +814,6 @@ res.append = function append(field, val) {
   }
 
   return this.set(field, value);
-};
-
-/**
- * Set header `field` to `val`, or pass
- * an object of header fields.
- *
- * Examples:
- *
- *    res.set('Foo', ['bar', 'baz']);
- *    res.set('Accept', 'application/json');
- *    res.set({ Accept: 'text/plain', 'X-API-Key': 'tobi' });
- *
- * Aliased as `res.header()`.
- *
- * @param {String|Object} field
- * @param {String|Array} val
- * @return {ServerResponse} for chaining
- * @public
- */
-
-res.set =
-res.header = function header(field, val) {
-  if (arguments.length === 2) {
-    var value = Array.isArray(val)
-      ? val.map(String)
-      : String(val);
-
-    // add charset to content-type
-    if (field.toLowerCase() === 'content-type') {
-      if (Array.isArray(value)) {
-        throw new TypeError('Content-Type cannot be set to an Array');
-      }
-      if (!charsetRegExp.test(value)) {
-        var charset = mime.charsets.lookup(value.split(';')[0]);
-        if (charset) value += '; charset=' + charset.toLowerCase();
-      }
-    }
-
-    this.setHeader(field, value);
-  } else {
-    for (var key in field) {
-      this.set(key, field[key]);
-    }
-  }
-  return this;
-};
-
-/**
- * Get value for header `field`.
- *
- * @param {String} field
- * @return {String}
- * @public
- */
-
-res.get = function(field){
-  return this.getHeader(field);
 };
 
 /**
