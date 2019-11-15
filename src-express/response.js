@@ -890,7 +890,7 @@ res.append = function append(field, val) {
  * @return {ServerResponse} for chaining
  * @public
  */
-
+/* 调用当前文件的 cookie 方法，只不过设置为空 */
 res.clearCookie = function clearCookie(name, options) {
   var opts = merge({ expires: new Date(1), path: '/' }, options);
 
@@ -920,7 +920,7 @@ res.clearCookie = function clearCookie(name, options) {
  * @return {ServerResponse} for chaining
  * @public
  */
-
+/* 调用 res 的 setHeader 方法设置 res 的 Set-Cookie */
 res.cookie = function (name, value, options) {
   var opts = merge({}, options);
   var secret = this.req.secret;
@@ -930,23 +930,28 @@ res.cookie = function (name, value, options) {
     throw new Error('cookieParser("secret") required for signed cookies');
   }
 
+  /* 设置的 value 转化为 String */
   var val = typeof value === 'object'
     ? 'j:' + JSON.stringify(value)
     : String(value);
-
+  
+  /* 对 cookie 添加签名 */
   if (signed) {
     val = 's:' + sign(val, secret);
   }
 
+  /* 含有 maxAge */
   if ('maxAge' in opts) {
     opts.expires = new Date(Date.now() + opts.maxAge);
     opts.maxAge /= 1000;
   }
 
+  /* path 没有的话 初始为 '/' */
   if (opts.path == null) {
     opts.path = '/';
   }
 
+  /* 调用当前文件的 append 方法，在 res 的 Set-Cookie */
   this.append('Set-Cookie', cookie.serialize(name, String(val), opts));
 
   return this;
@@ -968,7 +973,7 @@ res.cookie = function (name, value, options) {
  * @return {ServerResponse} for chaining
  * @public
  */
-
+/* 调用 res 的 setHeader 设置 Location */
 res.location = function location(url) {
   var loc = url;
 
