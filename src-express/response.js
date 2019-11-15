@@ -772,7 +772,7 @@ res.download = function download (path, filename, options, callback) {
  * @return {ServerResponse} for chaining
  * @public
  */
-/* 设置响应 res Content-Type 为 obj 上的 key , 同时调用 obj 上的 key 值对应的 value  */
+/* 设置响应 res 上的 Content-Type 为 obj 上的 key , 同时调用 obj 上的 key 值对应的 value  */
 res.format = function(obj){
   var req = this.req;
   /* next 为 this.req.next 上的方法 */
@@ -958,6 +958,73 @@ res.cookie = function (name, value, options) {
 };
 
 /**
+ * Redirect to the given `url` with optional response `status`
+ * defaulting to 302.
+ *
+ * The resulting `url` is determined by `res.location()`, so
+ * it will play nicely with mounted apps, relative paths,
+ * `"back"` etc.
+ *
+ * Examples:
+ *
+ *    res.redirect('/foo/bar');
+ *    res.redirect('http://example.com');
+ *    res.redirect(301, 'http://example.com');
+ *    res.redirect('../login'); // /blog/post/1 -> /blog/login
+ *
+ * @public
+ */
+/* 重定向：调用当前文件的 end 方法，设置了一系列的响应头 */
+res.redirect = function redirect(url) {
+  var address = url;
+  var body;
+  var status = 302;
+
+  // allow status / url
+  if (arguments.length === 2) {
+    if (typeof arguments[0] === 'number') {
+      status = arguments[0];
+      address = arguments[1];
+    } else {
+      deprecate('res.redirect(url, status): Use res.redirect(status, url) instead');
+      status = arguments[1];
+    }
+  }
+
+  // Set location header
+  /* 设置重定向的 Headers: 重定向路径是存储在响应头里面的 Location 字段中 */
+  address = this.location(address).get('Location');
+
+  // Support text/{plain,html} by default
+  /* 设置响应 res 上的 Content-Type 为 obj 上的 key , 同时调用 obj 上的 key 值对应的 value  */
+  this.format({
+    text: function(){
+      body = statuses[status] + '. Redirecting to ' + address
+    },
+
+    html: function(){
+      var u = escapeHtml(address);
+      body = '<p>' + statuses[status] + '. Redirecting to <a href="' + u + '">' + u + '</a></p>'
+    },
+
+    default: function(){
+      body = '';
+    }
+  });
+
+  // Respond
+  /* 设置响应头的 Content-Length */
+  this.statusCode = status;
+  this.set('Content-Length', Buffer.byteLength(body));
+
+  if (this.req.method === 'HEAD') {
+    this.end();
+  } else {
+    this.end(body);
+  }
+};
+
+/**
  * Set the location header to `url`.
  *
  * The given `url` can also be "back", which redirects
@@ -984,70 +1051,6 @@ res.location = function location(url) {
 
   // set location
   return this.set('Location', encodeUrl(loc));
-};
-
-/**
- * Redirect to the given `url` with optional response `status`
- * defaulting to 302.
- *
- * The resulting `url` is determined by `res.location()`, so
- * it will play nicely with mounted apps, relative paths,
- * `"back"` etc.
- *
- * Examples:
- *
- *    res.redirect('/foo/bar');
- *    res.redirect('http://example.com');
- *    res.redirect(301, 'http://example.com');
- *    res.redirect('../login'); // /blog/post/1 -> /blog/login
- *
- * @public
- */
-
-res.redirect = function redirect(url) {
-  var address = url;
-  var body;
-  var status = 302;
-
-  // allow status / url
-  if (arguments.length === 2) {
-    if (typeof arguments[0] === 'number') {
-      status = arguments[0];
-      address = arguments[1];
-    } else {
-      deprecate('res.redirect(url, status): Use res.redirect(status, url) instead');
-      status = arguments[1];
-    }
-  }
-
-  // Set location header
-  address = this.location(address).get('Location');
-
-  // Support text/{plain,html} by default
-  this.format({
-    text: function(){
-      body = statuses[status] + '. Redirecting to ' + address
-    },
-
-    html: function(){
-      var u = escapeHtml(address);
-      body = '<p>' + statuses[status] + '. Redirecting to <a href="' + u + '">' + u + '</a></p>'
-    },
-
-    default: function(){
-      body = '';
-    }
-  });
-
-  // Respond
-  this.statusCode = status;
-  this.set('Content-Length', Buffer.byteLength(body));
-
-  if (this.req.method === 'HEAD') {
-    this.end();
-  } else {
-    this.end(body);
-  }
 };
 
 /**
