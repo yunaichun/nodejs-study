@@ -772,25 +772,32 @@ res.download = function download (path, filename, options, callback) {
  * @return {ServerResponse} for chaining
  * @public
  */
-
+/* 设置响应 res Content-Type 为 obj 上的 key , 同时调用 obj 上的 key 值对应的 value  */
 res.format = function(obj){
   var req = this.req;
+  /* next 为 this.req.next 上的方法 */
   var next = req.next;
 
   var fn = obj.default;
   if (fn) delete obj.default;
+  /* 参数为一个对象 */
   var keys = Object.keys(obj);
 
+  /* 设置请求 req 的 accepts */
   var key = keys.length > 0
     ? req.accepts(keys)
     : false;
 
+  /* 在 this 上添加 Accept */
   this.vary("Accept");
 
   if (key) {
+    /* 调用 res 的 setHeader 设置 Content-Type */
     this.set('Content-Type', normalizeType(key).value);
+    /* 调用此方法 */
     obj[key](req, this, next);
   } else if (fn) {
+     /* 调用 fn 方法 */
     fn();
   } else {
     var err = new Error('Not Acceptable');
@@ -803,18 +810,43 @@ res.format = function(obj){
 };
 
 /**
+ * Add `field` to Vary. If already present in the Vary set, then
+ * this call is simply ignored.
+ *
+ * @param {Array|String} field
+ * @return {ServerResponse} for chaining
+ * @public
+ */
+/* 在当前文件的 this 对象上面设置 field */
+res.vary = function(field){
+  // checks for back-compat
+  if (!field || (Array.isArray(field) && !field.length)) {
+    deprecate('res.vary(): Provide a field name');
+    return this;
+  }
+  
+  /* // about to user-agent sniff
+    vary(res, 'User-Agent') 
+  */
+  vary(this, field);
+
+  return this;
+};
+
+/**
  * Set _Content-Disposition_ header to _attachment_ with optional `filename`.
  *
  * @param {String} filename
  * @return {ServerResponse}
  * @public
  */
-
+/* 调用 res 的 setHeader 方法设置 Content-Disposition */
 res.attachment = function attachment(filename) {
+  /* 调用 res 的 type 方法 */
   if (filename) {
     this.type(extname(filename));
   }
-
+  /* 调用 res 的 setHeader 方法设置 Content-Disposition */
   this.set('Content-Disposition', contentDisposition(filename));
 
   return this;
@@ -834,7 +866,7 @@ res.attachment = function attachment(filename) {
  * @return {ServerResponse} for chaining
  * @public
  */
-
+/* 调用 res 的 setHeader 方法向 field 追加 val 值 */
 res.append = function append(field, val) {
   var prev = this.get(field);
   var value = val;
@@ -846,6 +878,7 @@ res.append = function append(field, val) {
       : [prev, val];
   }
 
+  /* 设置 field 的 value ， 此 value 值为数组 */
   return this.set(field, value);
 };
 
@@ -1010,27 +1043,6 @@ res.redirect = function redirect(url) {
   } else {
     this.end(body);
   }
-};
-
-/**
- * Add `field` to Vary. If already present in the Vary set, then
- * this call is simply ignored.
- *
- * @param {Array|String} field
- * @return {ServerResponse} for chaining
- * @public
- */
-
-res.vary = function(field){
-  // checks for back-compat
-  if (!field || (Array.isArray(field) && !field.length)) {
-    deprecate('res.vary(): Provide a field name');
-    return this;
-  }
-
-  vary(this, field);
-
-  return this;
 };
 
 /**
