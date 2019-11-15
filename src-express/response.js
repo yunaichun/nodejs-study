@@ -166,8 +166,9 @@ res.get = function(field){
  * @return {ServerResponse}
  * @public
  */
-
+/* 调用 res 的 setHeader 设置 Link */
 res.links = function(links){
+  /* 获取 res.getHeader('Link'); */
   var link = this.get('Link') || '';
   if (link) link += ', ';
   return this.set('Link', link + Object.keys(links).map(function(rel){
@@ -187,10 +188,12 @@ res.links = function(links){
  * @param {string|number|boolean|object|Buffer} body
  * @public
  */
-
+/* 设置响应体：调用 res 的 end 方法 */
 res.send = function send(body) {
+  /* 响应体 */
   var chunk = body;
   var encoding;
+  /* 请求体 */
   var req = this.req;
   var type;
 
@@ -199,6 +202,7 @@ res.send = function send(body) {
 
   // allow status / body
   if (arguments.length === 2) {
+    /* 同时返回状态码的写法已经废弃 */
     // res.send(body, status) backwards compat
     if (typeof arguments[0] !== 'number' && typeof arguments[1] === 'number') {
       deprecate('res.send(body, status): Use res.status(status).send(body) instead');
@@ -211,6 +215,7 @@ res.send = function send(body) {
   }
 
   // disambiguate res.send(status) and res.send(status, num)
+  /* res.sendStatus(status) 已经弃用 */
   if (typeof chunk === 'number' && arguments.length === 1) {
     // res.send(status) will set status message as text string
     if (!this.get('Content-Type')) {
@@ -222,10 +227,12 @@ res.send = function send(body) {
     chunk = statuses[chunk]
   }
 
+  /* 设置响应头 res 的 Content-Type */
   switch (typeof chunk) {
     // string defaulting to html
     case 'string':
       if (!this.get('Content-Type')) {
+        /* 调用 res 的 setHeader 设置 Content-Type */
         this.type('html');
       }
       break;
@@ -236,15 +243,18 @@ res.send = function send(body) {
         chunk = '';
       } else if (Buffer.isBuffer(chunk)) {
         if (!this.get('Content-Type')) {
+          /* 调用 res 的 setHeader 设置 Content-Type */
           this.type('bin');
         }
       } else {
+        /* 主要是对 body 做了一次 stringify */
         return this.json(chunk);
       }
       break;
   }
 
   // write strings in utf-8
+  /* string 类型的响应体添加 Content-Type 为 utf-8 编码 */
   if (typeof chunk === 'string') {
     encoding = 'utf8';
     type = this.get('Content-Type');
@@ -260,8 +270,10 @@ res.send = function send(body) {
   var generateETag = !this.get('ETag') && typeof etagFn === 'function'
 
   // populate Content-Length
+  /* 设置响应头 res 的 Content-Length */
   var len
   if (chunk !== undefined) {
+    /* 如果响应体是 Buffer */
     if (Buffer.isBuffer(chunk)) {
       // get length of Buffer
       len = chunk.length
@@ -279,6 +291,7 @@ res.send = function send(body) {
   }
 
   // populate ETag
+  /* 设置响应头 res 的 ETag */
   var etag;
   if (generateETag && len !== undefined) {
     if ((etag = etagFn(chunk, encoding))) {
@@ -287,9 +300,11 @@ res.send = function send(body) {
   }
 
   // freshness
+  /* 协商缓存的情况，返回状态吗 304 */
   if (req.fresh) this.statusCode = 304;
 
   // strip irrelevant headers
+  /* 304 或者 204 不返回任何东西 */
   if (204 === this.statusCode || 304 === this.statusCode) {
     this.removeHeader('Content-Type');
     this.removeHeader('Content-Length');
@@ -298,14 +313,66 @@ res.send = function send(body) {
   }
 
   if (req.method === 'HEAD') {
+    /* HEAD 请求不返回任何东西 */
     // skip body for HEAD
     this.end();
   } else {
+    /* 非 HEAD 请求返回 chunk */
     // respond
     this.end(chunk, encoding);
   }
 
   return this;
+};
+
+/**
+ * Set _Content-Type_ response header with `type` through `mime.lookup()`
+ * when it does not contain "/", or set the Content-Type to `type` otherwise.
+ *
+ * Examples:
+ *
+ *     res.type('.html');
+ *     res.type('html');
+ *     res.type('json');
+ *     res.type('application/json');
+ *     res.type('png');
+ *
+ * @param {String} type
+ * @return {ServerResponse} for chaining
+ * @public
+ */
+/* 调用 res 的 setHeader 设置 Content-Type */
+res.contentType =
+res.type = function contentType(type) {
+  var ct = type.indexOf('/') === -1
+    ? mime.lookup(type)
+    : type;
+
+  return this.set('Content-Type', ct);
+};
+
+/**
+ * Send given HTTP status code.
+ *
+ * Sets the response status to `statusCode` and the body of the
+ * response to the standard description from node's http.STATUS_CODES
+ * or the statusCode number if no description.
+ *
+ * Examples:
+ *
+ *     res.sendStatus(200);
+ *
+ * @param {number} statusCode
+ * @public
+ */
+/* 调用当前文件的 send 方法设置 body */
+res.sendStatus = function sendStatus(statusCode) {
+  var body = statuses[statusCode] || String(statusCode)
+
+  this.statusCode = statusCode;
+  this.type('txt');
+
+  return this.send(body);
 };
 
 /**
@@ -319,12 +386,13 @@ res.send = function send(body) {
  * @param {string|number|boolean|object} obj
  * @public
  */
-
+/* 调用 当前文件 的 send 方法 */
 res.json = function json(obj) {
   var val = obj;
 
   // allow status / body
   if (arguments.length === 2) {
+    /* 同时设置响应状态的方法已经废弃 */
     // res.json(body, status) backwards compat
     if (typeof arguments[1] === 'number') {
       deprecate('res.json(obj, status): Use res.status(status).json(obj) instead');
@@ -341,13 +409,16 @@ res.json = function json(obj) {
   var escape = app.get('json escape')
   var replacer = app.get('json replacer');
   var spaces = app.get('json spaces');
+  /* 可以看出：主要是对 body 做了一次 stringify */
   var body = stringify(val, replacer, spaces, escape)
 
   // content-type
   if (!this.get('Content-Type')) {
+    /* 调用 res 的 setHeader 设置 Content-Type */
     this.set('Content-Type', 'application/json');
   }
 
+  /* 调用当前文件的 send 方法 */
   return this.send(body);
 };
 
@@ -415,30 +486,6 @@ res.jsonp = function jsonp(obj) {
     // the typeof check is just to reduce client error noise
     body = '/**/ typeof ' + callback + ' === \'function\' && ' + callback + '(' + body + ');';
   }
-
-  return this.send(body);
-};
-
-/**
- * Send given HTTP status code.
- *
- * Sets the response status to `statusCode` and the body of the
- * response to the standard description from node's http.STATUS_CODES
- * or the statusCode number if no description.
- *
- * Examples:
- *
- *     res.sendStatus(200);
- *
- * @param {number} statusCode
- * @public
- */
-
-res.sendStatus = function sendStatus(statusCode) {
-  var body = statuses[statusCode] || String(statusCode)
-
-  this.statusCode = statusCode;
-  this.type('txt');
 
   return this.send(body);
 };
@@ -655,32 +702,6 @@ res.download = function download (path, filename, options, callback) {
 
   // send file
   return this.sendFile(fullPath, opts, done)
-};
-
-/**
- * Set _Content-Type_ response header with `type` through `mime.lookup()`
- * when it does not contain "/", or set the Content-Type to `type` otherwise.
- *
- * Examples:
- *
- *     res.type('.html');
- *     res.type('html');
- *     res.type('json');
- *     res.type('application/json');
- *     res.type('png');
- *
- * @param {String} type
- * @return {ServerResponse} for chaining
- * @public
- */
-
-res.contentType =
-res.type = function contentType(type) {
-  var ct = type.indexOf('/') === -1
-    ? mime.lookup(type)
-    : type;
-
-  return this.set('Content-Type', ct);
 };
 
 /**
