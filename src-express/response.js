@@ -1065,7 +1065,7 @@ res.location = function location(url) {
  *
  * @public
  */
-
+/* 调用 app 文件上的 render 方法 */
 res.render = function render(view, options, callback) {
   var app = this.req.app;
   var done = callback;
@@ -1085,10 +1085,12 @@ res.render = function render(view, options, callback) {
   // default callback to respond
   done = done || function (err, str) {
     if (err) return req.next(err);
+    /* 调用当前文件的 send 方法 */
     self.send(str);
   };
 
   // render
+  /* 调用 app 文件的 render 方法 */
   app.render(view, opts, done);
 };
 
