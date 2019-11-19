@@ -544,6 +544,7 @@ methods.concat('all').forEach(function(method){
 });
 
 // append methods to a list of methods
+/* 向 list 数组中添加 addition 中的 item */
 function appendMethods(list, addition) {
   for (var i = 0; i < addition.length; i++) {
     var method = addition[i];
