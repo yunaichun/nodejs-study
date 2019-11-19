@@ -1,3 +1,5 @@
+/* 把 当前文件的方法混入到 route.js 中 */
+
 /*!
  * express
  * Copyright(c) 2009-2013 TJ Holowaychuk
@@ -221,10 +223,53 @@ proto.use = function use(fn) {
 };
 
 /**
+ * Create a new Route for the given path.
+ *
+ * Each route contains a separate middleware stack and VERB handlers.
+ *
+ * See the Route api documentation for details on adding handlers
+ * and middleware to routes.
+ *
+ * @param {String} path
+ * @return {Route}
+ * @public
+ */
+/* route 路由方法 */
+proto.route = function route(path) {
+  /* 实例 Route */
+  var route = new Route(path);
+
+  /* 实例 Layer */
+  var layer = new Layer(path, {
+    sensitive: this.caseSensitive,
+    strict: this.strict,
+    end: true
+  }, route.dispatch.bind(route));
+
+  layer.route = route;
+
+  /* 将 layer 中间件存入数组 */
+  this.stack.push(layer);
+
+  /* 返回 route 实例 */
+  return route;
+};
+
+// create Router#VERB functions
+/* 在 route 上挂载所有 methods */
+methods.concat('all').forEach(function(method){
+  proto[method] = function(path){
+    /* 调用 route 方法 */
+    var route = this.route(path)
+    /* 调用 method 方法 */
+    route[method].apply(route, slice.call(arguments, 1));
+    return this;
+  };
+});
+/**
  * Dispatch a req, res into the router.
  * @private
  */
-
 proto.handle = function handle(req, res, out) {
   var self = this;
 
@@ -419,7 +464,6 @@ proto.handle = function handle(req, res, out) {
  * Process any parameters for the layer.
  * @private
  */
-
 proto.process_params = function process_params(layer, called, req, res, done) {
   var params = this.params;
 
@@ -505,43 +549,6 @@ proto.process_params = function process_params(layer, called, req, res, done) {
 
   param();
 };
-
-/**
- * Create a new Route for the given path.
- *
- * Each route contains a separate middleware stack and VERB handlers.
- *
- * See the Route api documentation for details on adding handlers
- * and middleware to routes.
- *
- * @param {String} path
- * @return {Route}
- * @public
- */
-
-proto.route = function route(path) {
-  var route = new Route(path);
-
-  var layer = new Layer(path, {
-    sensitive: this.caseSensitive,
-    strict: this.strict,
-    end: true
-  }, route.dispatch.bind(route));
-
-  layer.route = route;
-
-  this.stack.push(layer);
-  return route;
-};
-
-// create Router#VERB functions
-methods.concat('all').forEach(function(method){
-  proto[method] = function(path){
-    var route = this.route(path)
-    route[method].apply(route, slice.call(arguments, 1));
-    return this;
-  };
-});
 
 // append methods to a list of methods
 /* 向 list 数组中添加 addition 中的 item */
