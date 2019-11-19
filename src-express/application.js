@@ -18,7 +18,7 @@ var http = require('http');
 var methods = require('methods');
 /* path 路径 【http://nodejs.cn/api/path.html】 */
 var resolve = require('path').resolve;
-/*js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
+/* js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 var debug = require('debug')('express:application');
 /* 调用Node.js函数作为响应HTTP请求的最后一步 【https://www.npmjs.com/package/finalhandler】 */
 var finalhandler = require('finalhandler');
@@ -109,6 +109,7 @@ app.defaultConfiguration = function defaultConfiguration() {
   /* 打印当前环境 */
   debug('booting in %s mode', env);
 
+  /* 在 app.use 时触发 mount */
   this.on('mount', function onmount(parent) {
     // inherit trust proxy
     /* trustProxyDefaultSymbol 值为 true 但是父 settings  trust proxy fn 为 */

@@ -15,12 +15,19 @@
 
 var Route = require('./route');
 var Layer = require('./layer');
+/* 可以获取到 http 所有的合理请求方法名 【https://www.npmjs.com/package/methods】 */
 var methods = require('methods');
+/* 对象合并 【https://www.npmjs.com/package/utils-merge】 */
 var mixin = require('utils-merge');
+/* js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 var debug = require('debug')('express:router');
+/* js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 var deprecate = require('depd')('express');
+/* 展平嵌套数组 【https://www.npmjs.com/package/array-flatten】 */
 var flatten = require('array-flatten');
+/* 使用备注解析URL 【https://www.npmjs.com/package/parseurl】 */
 var parseUrl = require('parseurl');
+/* 设置原型对象的 【https://www.npmjs.com/package/setprototypeof】 */
 var setPrototypeOf = require('setprototypeof')
 
 /**
@@ -39,18 +46,22 @@ var toString = Object.prototype.toString;
  * @return {Router} which is an callable function
  * @public
  */
-
+/* 导出的模块 */
 var proto = module.exports = function(options) {
   var opts = options || {};
 
+  /* 定义 router 函数，调用 router 上的 handle 方法 */
   function router(req, res, next) {
     router.handle(req, res, next);
   }
 
   // mixin Router class functions
+  /* 将 proto 里面的方法混入到 router */
   setPrototypeOf(router, proto)
 
+  /* 存储 proto.param 传递的参数 name 和 fn */
   router.params = {};
+  /* 存储 proto.param 传递的参数 name */
   router._params = [];
   router.caseSensitive = opts.caseSensitive;
   router.mergeParams = opts.mergeParams;
@@ -93,9 +104,9 @@ var proto = module.exports = function(options) {
  * @return {app} for chaining
  * @public
  */
-
 proto.param = function param(name, fn) {
   // param logic
+  /* name 是 function 的写法已经废弃 */
   if (typeof name === 'function') {
     deprecate('router.param(fn): Refactor to use path params');
     this._params.push(name);
@@ -107,23 +118,29 @@ proto.param = function param(name, fn) {
   var len = params.length;
   var ret;
 
+  /* router.param(':user') 添加 冒号 的写法已经废弃 */
   if (name[0] === ':') {
     deprecate('router.param(' + JSON.stringify(name) + ', fn): Use router.param(' + JSON.stringify(name.substr(1)) + ', fn) instead');
     name = name.substr(1);
   }
 
+  /* 遍历所有通过 app.param 传递的 name 数组 */
   for (var i = 0; i < len; ++i) {
+    /* params[i](name, fn) 存在 */
     if (ret = params[i](name, fn)) {
+      /* 重置 fn */
       fn = ret;
     }
   }
 
   // ensure we end up with a
   // middleware function
+  /* fn 不是 function 的话报错 */
   if ('function' !== typeof fn) {
     throw new Error('invalid param() call for ' + name + ', got ' + fn);
   }
 
+  /* 存储 app.param 传递的参数 name 和 fn */
   (this.params[name] = this.params[name] || []).push(fn);
   return this;
 };
