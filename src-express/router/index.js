@@ -146,6 +146,81 @@ proto.param = function param(name, fn) {
 };
 
 /**
+ * Use the given middleware function, with optional path, defaulting to "/".
+ *
+ * Use (like `.all`) will run for any http METHOD, but it will not add
+ * handlers for those methods so OPTIONS requests will not consider `.use`
+ * functions even if they could respond.
+ *
+ * The other difference is that _route_ path is stripped and not visible
+ * to the handler function. The main effect of this feature is that mounted
+ * handlers can operate without any code changes regardless of the "prefix"
+ * pathname.
+ *
+ * @public
+ */
+/* router.use() 实际做了 2 件事：
+  1、实例化 Layer
+  2、this.stack 存储 Layer 实例
+*/
+proto.use = function use(fn) {
+  var offset = 0;
+  var path = '/';
+
+  // default path to '/'
+  // disambiguate router.use([fn])
+  if (typeof fn !== 'function') {
+    var arg = fn;
+
+    /* 取数组第一项 */
+    while (Array.isArray(arg) && arg.length !== 0) {
+      arg = arg[0];
+    }
+
+    // first arg is the path
+    /* 数组参数第一项不是 fn */
+    if (typeof arg !== 'function') {
+      offset = 1;
+      path = fn;
+    }
+  }
+
+  /* 展平数组【去掉 path 之后】 */
+  var callbacks = flatten(slice.call(arguments, offset));
+
+  /* 至少需要一个中间件 */
+  if (callbacks.length === 0) {
+    throw new TypeError('Router.use() requires a middleware function')
+  }
+
+  for (var i = 0; i < callbacks.length; i++) {
+    var fn = callbacks[i];
+
+    /* callbacks 里面一定都是 funcion */
+    if (typeof fn !== 'function') {
+      throw new TypeError('Router.use() requires a middleware function but got a ' + gettype(fn))
+    }
+
+    // add the middleware
+    debug('use %o %s', path, fn.name || '<anonymous>')
+
+    /* 实例 Layer */
+    var layer = new Layer(path, {
+      sensitive: this.caseSensitive,
+      strict: false,
+      end: false
+    }, fn);
+
+    layer.route = undefined;
+
+    /* 存储中间件 */
+    this.stack.push(layer);
+  }
+
+  return this;
+};
+
+/**
  * Dispatch a req, res into the router.
  * @private
  */
@@ -177,9 +252,13 @@ proto.handle = function handle(req, res, out) {
   req.next = next;
 
   // for options requests, respond with a default if nothing else responds
+  /* OPTIONS 请求的话 */
   if (req.method === 'OPTIONS') {
+    /* wrap 函数的作用会执行第二个参数，将 old 参数传入进去 */
     done = wrap(done, function(old, err) {
+      /* 出错的话 */
       if (err || options.length === 0) return old(err);
+      /* 发送 sendOptionsResponse 请求【res.body 是 options.join(',')】 */
       sendOptionsResponse(res, options, old);
     });
   }
@@ -189,7 +268,7 @@ proto.handle = function handle(req, res, out) {
   req.originalUrl = req.originalUrl || req.url;
 
   next();
-
+  /* 调用 next */
   function next(err) {
     var layerError = err === 'route'
       ? null
@@ -428,71 +507,6 @@ proto.process_params = function process_params(layer, called, req, res, done) {
 };
 
 /**
- * Use the given middleware function, with optional path, defaulting to "/".
- *
- * Use (like `.all`) will run for any http METHOD, but it will not add
- * handlers for those methods so OPTIONS requests will not consider `.use`
- * functions even if they could respond.
- *
- * The other difference is that _route_ path is stripped and not visible
- * to the handler function. The main effect of this feature is that mounted
- * handlers can operate without any code changes regardless of the "prefix"
- * pathname.
- *
- * @public
- */
-
-proto.use = function use(fn) {
-  var offset = 0;
-  var path = '/';
-
-  // default path to '/'
-  // disambiguate router.use([fn])
-  if (typeof fn !== 'function') {
-    var arg = fn;
-
-    while (Array.isArray(arg) && arg.length !== 0) {
-      arg = arg[0];
-    }
-
-    // first arg is the path
-    if (typeof arg !== 'function') {
-      offset = 1;
-      path = fn;
-    }
-  }
-
-  var callbacks = flatten(slice.call(arguments, offset));
-
-  if (callbacks.length === 0) {
-    throw new TypeError('Router.use() requires a middleware function')
-  }
-
-  for (var i = 0; i < callbacks.length; i++) {
-    var fn = callbacks[i];
-
-    if (typeof fn !== 'function') {
-      throw new TypeError('Router.use() requires a middleware function but got a ' + gettype(fn))
-    }
-
-    // add the middleware
-    debug('use %o %s', path, fn.name || '<anonymous>')
-
-    var layer = new Layer(path, {
-      sensitive: this.caseSensitive,
-      strict: false,
-      end: false
-    }, fn);
-
-    layer.route = undefined;
-
-    this.stack.push(layer);
-  }
-
-  return this;
-};
-
-/**
  * Create a new Route for the given path.
  *
  * Each route contains a separate middleware stack and VERB handlers.
@@ -540,6 +554,7 @@ function appendMethods(list, addition) {
 }
 
 // get pathname of request
+/* 解析请求 req 中的 pathname */
 function getPathname(req) {
   try {
     return parseUrl(req).pathname;
@@ -654,9 +669,12 @@ function restore(fn, obj) {
 }
 
 // send an OPTIONS response
+/* 发送 options 请求 */
 function sendOptionsResponse(res, options, next) {
   try {
+    /* 以 , 分割 */
     var body = options.join(',');
+    /* 设置响应头，同时发送数据 */
     res.set('Allow', body);
     res.send(body);
   } catch (err) {
@@ -665,7 +683,9 @@ function sendOptionsResponse(res, options, next) {
 }
 
 // wrap a function
+/* 返回一个函数 */
 function wrap(old, fn) {
+  /* 返回一个函数 */
   return function proxy() {
     var args = new Array(arguments.length + 1);
 
@@ -674,6 +694,7 @@ function wrap(old, fn) {
       args[i + 1] = arguments[i];
     }
 
+    /* 此函数会执行 fn，将 old 传入 */
     fn.apply(this, args);
   };
 }
