@@ -12,8 +12,9 @@
  * Module dependencies.
  * @private
  */
-
+/* 解析动态路由等【https://www.npmjs.com/package/path-to-regexp】 */
 var pathRegexp = require('path-to-regexp');
+/* js 调试工具: 会添加统一前缀【https://www.npmjs.com/package/debug】*/
 var debug = require('debug')('express:router:layer');
 
 /**
@@ -27,10 +28,11 @@ var hasOwnProperty = Object.prototype.hasOwnProperty;
  * Module exports.
  * @public
  */
-
+/* 导出 Layer 模块 */
 module.exports = Layer;
-
+/* Layer 构造函数 */
 function Layer(path, options, fn) {
+  /* 必须实例化出来 */
   if (!(this instanceof Layer)) {
     return new Layer(path, options, fn);
   }
@@ -38,10 +40,14 @@ function Layer(path, options, fn) {
   debug('new %o', path)
   var opts = options || {};
 
+  /* 第三个参数 fn */
   this.handle = fn;
   this.name = fn.name || '<anonymous>';
+
+  
   this.params = undefined;
   this.path = undefined;
+
   this.regexp = pathRegexp(path, this.keys = [], opts);
 
   // set fast path flags
@@ -58,7 +64,7 @@ function Layer(path, options, fn) {
  * @param {function} next
  * @api private
  */
-
+/* 调用 this.handle 传入 error, req, res, next */
 Layer.prototype.handle_error = function handle_error(error, req, res, next) {
   var fn = this.handle;
 
@@ -82,7 +88,7 @@ Layer.prototype.handle_error = function handle_error(error, req, res, next) {
  * @param {function} next
  * @api private
  */
-
+/* 调用 this.handle 传入 req, res, next */
 Layer.prototype.handle_request = function handle(req, res, next) {
   var fn = this.handle;
 
@@ -106,7 +112,7 @@ Layer.prototype.handle_request = function handle(req, res, next) {
  * @return {Boolean}
  * @api private
  */
-
+/* 返回是否匹配上 path  */
 Layer.prototype.match = function match(path) {
   var match
 
@@ -162,12 +168,13 @@ Layer.prototype.match = function match(path) {
  * @return {string}
  * @private
  */
-
+/* decode 路由参数 param */
 function decode_param(val) {
   if (typeof val !== 'string' || val.length === 0) {
     return val;
   }
 
+  /* 只有字符串才会去 decode */
   try {
     return decodeURIComponent(val);
   } catch (err) {
