@@ -4,7 +4,7 @@
   "description": "koa upload-async demo",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node --inspect index.js"
   },
   "keywords": [
     "koajs"
